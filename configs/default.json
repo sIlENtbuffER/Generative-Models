@@ -1,0 +1,39 @@
+{
+  "seed": 42,
+
+  "dataset": {
+    "name": "mnist",
+    "data_dir": "data/MNIST/raw"
+  },
+
+  "model": {
+    "name": "vae",
+    "hidden_dim": 400,
+    "latent_dim": 20
+  },
+
+  "optimizer": {
+    "name": "adam",
+    "lr": 0.001,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "eps": 1e-8
+  },
+
+  "training": {
+    "enabled": true,
+    "epochs": 10,
+    "batch_size": 128
+  },
+
+  "sampling": {
+    "num_samples": 64,
+    "sample_dir": "samples/vae_mnist_adam"
+  },
+
+  "checkpoint": {
+    "checkpoint_dir": "checkpoints/vae_mnist_adam",
+    "load_checkpoint": false,
+    "load_checkpoint_path": "checkpoints/vae_mnist_adam/epoch_1.safetensors"
+  }
+}

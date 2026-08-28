@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# C / C++ / CUDA build directories
+/build/
+cmake-build-*/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+CMakeUserPresets.json
+Testing/
+
+# Ninja
+build.ninja
+rules.ninja
+.ninja_deps
+.ninja_log
+
+# Compiled objects and libraries
+*.o
+*.obj
+*.d
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+# CUDA generated files
+*.ptx
+*.cubin
+*.fatbin
+
+# Profiling, coverage and sanitizer output
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+*.nsys-rep
+*.ncu-rep
+asan.*
+ubsan.*
+/core
+/core.*
+
+# Datasets and training artifacts
+/data/
+/samples/
+/checkpoints/
+/runs/
+*.pt
+*.pth
+*.ckpt
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

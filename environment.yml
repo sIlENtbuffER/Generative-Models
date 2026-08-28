@@ -1,0 +1,16 @@
+name: genmodels_NV_CU130_py312
+
+channels:
+  - nvidia
+  - defaults
+
+dependencies:
+  - python=3.12
+  - numpy=2.5
+  - matplotlib-base=3.11
+  - gcc_linux-64
+  - cmake
+  - ninja
+  - safetensors
+  - cuda-nvcc=13.0
+  - cuda-cudart-dev=13.0
