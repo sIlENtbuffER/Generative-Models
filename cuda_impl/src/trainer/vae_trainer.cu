@@ -29,11 +29,11 @@ int vae_train_batch(VAE *vae, Optimizer *optimizer, uint64_t *seed, VAEWorkspace
 int vae_train_epoch(VAE *vae, Optimizer *optimizer, uint64_t *seed, size_t batch_size, size_t epoch, Data *data, Data *samples, const char *sample_dir) {
     int status = -1;
     char sample_path[1024];
-    VAELoss loss = {0};
+    VAELoss loss = {};
     size_t seen = 0;
-    VAEWorkspace vae_for_ws = {0};
-    VAEWorkspace vae_bac_ws = {0};
-    Tensor data_host = {0};
+    VAEWorkspace vae_for_ws = {};
+    VAEWorkspace vae_bac_ws = {};
+    Tensor data_host = {};
     if (vae_workspace_alloc(vae, batch_size, &vae_for_ws) != 0 || vae_workspace_alloc(vae, batch_size, &vae_bac_ws) != 0) goto cleanup;
     if (tensor_alloc(&data_host, vae_for_ws.input.ndim, vae_for_ws.input.shape) != 0) goto cleanup;
 
@@ -73,7 +73,7 @@ cleanup:
 int vae_sample(const VAE *vae, uint64_t *seed, Data *output){
     int status = -1;
     uint8_t *device_pixels = NULL;
-    VAEWorkspace vaews = {0};
+    VAEWorkspace vaews = {};
     if (vae_workspace_alloc(vae, output->count, &vaews) != 0) goto cleanup;
 
     vae_sample_kernel<<<cuda_blocks(vaews.z.numel), THREADS_PER_BLOCK>>>(vaews.z.data, *seed, vaews.z.numel);

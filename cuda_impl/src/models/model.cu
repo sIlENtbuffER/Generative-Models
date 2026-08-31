@@ -52,7 +52,7 @@ void model_free(Model *model) {
 
 int model_save_checkpoint(const Model *model, Checkpoint *checkpoint) {
     char name[CHECKPOINT_TENSOR_NAME_SIZE];
-    Tensor host = {0};
+    Tensor host = {};
     
     for (size_t i=0; i<model->num_parameters; i++) {
         Parameter *parameter = &model->parameters[i];

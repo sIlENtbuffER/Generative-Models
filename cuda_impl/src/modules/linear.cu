@@ -27,7 +27,7 @@ __global__ static void linear_bias_backward_kernel(float *db, const float *grad,
 }
 
 int linear_alloc(Linear *linear, size_t in_dim, size_t out_dim) {
-    *linear = (Linear){0};
+    *linear = (Linear){};
     linear->in_dim = in_dim;
     linear->out_dim = out_dim;
 
@@ -46,7 +46,7 @@ void linear_free(Linear *linear) {
     tensor_free(&linear->x_T);
     tensor_free(&linear->W_T);
 
-    *linear = (Linear){0};
+    *linear = (Linear){};
 }
 
 int linear_he_init(Linear *linear, uint64_t *seed) {

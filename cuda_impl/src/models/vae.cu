@@ -78,7 +78,7 @@ __global__ static void vae_backward_enc_hidden_kernel(float *denc_hidden, const 
 }
 
 int vae_alloc(VAE *vae, size_t input_dim, size_t hidden_dim, size_t latent_dim) {
-    *vae = (VAE){0};
+    *vae = (VAE){};
     vae->input_dim = input_dim;
     vae->hidden_dim = hidden_dim;
     vae->latent_dim = latent_dim;
@@ -108,7 +108,7 @@ int vae_free(VAE *vae) {
 }
 
 int vae_workspace_alloc(const VAE *vae, size_t batch_size, VAEWorkspace *vaews) {
-    *vaews = (VAEWorkspace){0};
+    *vaews = (VAEWorkspace){};
     if (tensor_alloc_2d(&vaews->input, batch_size, vae->input_dim) != 0) goto cleanup;
     if (tensor_alloc_2d(&vaews->enc_pre, batch_size, vae->hidden_dim) != 0 || tensor_alloc_2d(&vaews->enc_hidden, batch_size, vae->hidden_dim) != 0) goto cleanup;
     if (tensor_alloc_2d(&vaews->mu, batch_size, vae->latent_dim) != 0 || tensor_alloc_2d(&vaews->logvar, batch_size, vae->latent_dim) != 0 || tensor_alloc_2d(&vaews->eps, batch_size, vae->latent_dim) != 0 || tensor_alloc_2d(&vaews->z, batch_size, vae->latent_dim) != 0) goto cleanup;

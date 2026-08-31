@@ -60,7 +60,7 @@ __global__ static void tensor_transpose_kernel(DeviceTensor input, DeviceTensor 
 int tensor_alloc(DeviceTensor *tensor, size_t ndim, const size_t *shape) {
     if (ndim > TENSOR_MAX_DIMS) return -1;
 
-    *tensor = (DeviceTensor){0};
+    *tensor = (DeviceTensor){};
     size_t stride = 1;
 
     for (size_t i=ndim; i-->0;) {
@@ -80,7 +80,7 @@ int tensor_alloc(DeviceTensor *tensor, size_t ndim, const size_t *shape) {
     return 0;
 
 fail:
-    *tensor = (DeviceTensor){0};
+    *tensor = (DeviceTensor){};
     return -1;
 }
 
@@ -96,7 +96,7 @@ int tensor_alloc_2d(DeviceTensor *tensor, size_t dim0, size_t dim1) {
 
 void tensor_free(DeviceTensor *tensor) {
     cudaFree(tensor->data);
-    *tensor = (DeviceTensor){0};
+    *tensor = (DeviceTensor){};
 }
 
 

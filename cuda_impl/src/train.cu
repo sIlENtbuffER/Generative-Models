@@ -12,8 +12,8 @@ int main(int argc, char **argv) {
     int status = EXIT_FAILURE;
     const char *config_path = argc > 1 ? argv[1] : "configs/default.json";
 
-    Config config = {0};
-    Data data = {0};
+    Config config = {};
+    Data data = {};
     uint64_t seed = 0;
     Model model = {};
     Optimizer optimizer = {};

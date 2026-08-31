@@ -20,7 +20,7 @@ __global__ static void adam_step_kernel(float *m, float *v, float *value, const 
 }
 
 static int adam_element_alloc(AdamElement *adam_element, const Parameter *parameter) {
-    *adam_element = (AdamElement){0};
+    *adam_element = (AdamElement){};
 
     if (tensor_alloc(&adam_element->m, parameter->value->ndim, parameter->value->shape) != 0 || tensor_alloc(&adam_element->v, parameter->value->ndim, parameter->value->shape) != 0) {
         tensor_free(&adam_element->m);
@@ -32,7 +32,7 @@ static int adam_element_alloc(AdamElement *adam_element, const Parameter *parame
 }
 
 int adam_alloc(Adam *adam, const Parameter *parameters, size_t num_parameters, float lr, float beta1, float beta2, float eps) {
-    *adam = (Adam){0};
+    *adam = (Adam){};
     if (lr <= 0.0f || beta1 < 0.0f || beta1 >= 1.0f || beta2 < 0.0f || beta2 >= 1.0f || eps <= 0.0f) return -1;
     adam->adam_element = (AdamElement*)calloc(num_parameters, sizeof *adam->adam_element);
     if (adam->adam_element == NULL) return -1;
@@ -63,7 +63,7 @@ void adam_free(Adam *adam) {
     }
 
     free(adam->adam_element);
-    *adam = (Adam){0};
+    *adam = (Adam){};
 }
 
 int adam_step(Adam *adam) {
@@ -76,7 +76,7 @@ int adam_step(Adam *adam) {
         DeviceTensor *value = element->parameter.value;
         const DeviceTensor *grad = element->parameter.grad;
         adam_step_kernel<<<cuda_blocks(value->numel), THREADS_PER_BLOCK>>>(
-        element->m.data, element->v.data, element->parameter.value->data, element->parameter.grad->data,
+        element->m.data, element->v.data, value->data, grad->data,
         value->numel, adam->beta1, adam->beta2, adam->beta1_power, adam->beta2_power, adam->lr, adam->eps);
     }
 
@@ -86,7 +86,7 @@ int adam_step(Adam *adam) {
 
 int adam_save_checkpoint(Adam *adam, Checkpoint *checkpoint) {
     char name[CHECKPOINT_TENSOR_NAME_SIZE];
-    Tensor host = {0};
+    Tensor host = {};
 
     for (size_t i=0; i<adam->num_parameters; i++) {
         AdamElement *element = &adam->adam_element[i];
