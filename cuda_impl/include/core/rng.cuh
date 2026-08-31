@@ -1,15 +1,12 @@
 #ifndef RNG_CUH
 #define RNG_CUH
 
-#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct
 {
     uint64_t state;
     uint64_t increment;
-    bool has_spare;
-    float spare;
 } RNG;
 
 __device__ void rng_seed

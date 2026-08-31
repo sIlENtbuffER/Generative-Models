@@ -33,7 +33,7 @@ int vae_train_epoch(VAE *vae, Optimizer *optimizer, uint64_t *seed, size_t batch
     size_t seen = 0;
     VAEWorkspace vae_for_ws = {0};
     VAEWorkspace vae_bac_ws = {0};
-    Tensor data_host;
+    Tensor data_host = {0};
     if (vae_workspace_alloc(vae, batch_size, &vae_for_ws) != 0 || vae_workspace_alloc(vae, batch_size, &vae_bac_ws) != 0) goto cleanup;
     if (tensor_alloc(&data_host, vae_for_ws.input.ndim, vae_for_ws.input.shape) != 0) goto cleanup;
 
@@ -41,7 +41,7 @@ int vae_train_epoch(VAE *vae, Optimizer *optimizer, uint64_t *seed, size_t batch
         VAELoss batch_loss;
 
         if (data_batch(data, start, &data_host) != 0) goto cleanup;
-        tensor_host_to_device(data_host.data, &vae_for_ws.input);
+        if (tensor_host_to_device(data_host.data, &vae_for_ws.input) != 0) goto cleanup;
         if (vae_train_batch(vae, optimizer, seed, &vae_for_ws, &vae_bac_ws, &batch_loss) != 0) goto cleanup;
 
         loss.loss += batch_loss.loss * batch_size;
@@ -72,28 +72,25 @@ cleanup:
 
 int vae_sample(const VAE *vae, uint64_t *seed, Data *output){
     int status = -1;
-    float *host_output = NULL;
+    uint8_t *device_pixels = NULL;
     VAEWorkspace vaews = {0};
     if (vae_workspace_alloc(vae, output->count, &vaews) != 0) goto cleanup;
 
     vae_sample_kernel<<<cuda_blocks(vaews.z.numel), THREADS_PER_BLOCK>>>(vaews.z.data, *seed, vaews.z.numel);
     (*seed)++;
-    
+
     if (linear_forward(&vae->fc2, &vaews.z, &vaews.dec_pre) != 0 || relu_forward(&vaews.dec_pre, &vaews.dec_hidden) != 0) goto cleanup;
     if (linear_forward(&vae->fc3, &vaews.dec_hidden, &vaews.logits) != 0 || sigmoid_forward(&vaews.logits, &vaews.output) != 0) goto cleanup;
-    
-    host_output = (float*)malloc(vaews.output.numel * sizeof *host_output);
-    if (host_output == NULL) goto cleanup;
-    if (tensor_device_to_host(&vaews.output, host_output) != 0) { free(host_output); goto cleanup; }
 
-    for (size_t i=0; i<vaews.output.numel; i++) {
-        output->pixels[i] = (uint8_t)(host_output[i] * 255.0f);
-    }
+    if (cudaMalloc(&device_pixels, vaews.output.numel * sizeof *device_pixels) != cudaSuccess) goto cleanup;
+    vae_sample_pixel_kernel<<<cuda_blocks(vaews.output.numel), THREADS_PER_BLOCK>>>(device_pixels, vaews.output.data, vaews.output.numel);
+    if (cudaGetLastError() != cudaSuccess) goto cleanup;
+    if (cudaMemcpy(output->pixels, device_pixels, vaews.output.numel * sizeof *device_pixels, cudaMemcpyDeviceToHost) != cudaSuccess) goto cleanup;
 
     status = 0;
 
 cleanup:
     vae_workspace_free(&vaews);
-    free(host_output);
+    cudaFree(device_pixels);
     return status;
 }

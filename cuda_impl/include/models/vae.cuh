@@ -20,6 +20,10 @@ typedef struct
     Linear fc_logvar;
     Linear fc2;
     Linear fc3;
+
+    DeviceTensor d_logvar;
+    DeviceTensor d_recon_loss;
+    DeviceTensor d_kl_loss;
 } VAE;
 
 typedef struct

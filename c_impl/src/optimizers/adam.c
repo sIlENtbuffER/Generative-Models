@@ -108,10 +108,12 @@ int adam_load_checkpoint(Adam *adam, const Checkpoint *checkpoint) {
         AdamElement *element = &adam->adam_element[i];
         snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
+        if (cpt == NULL) return -1;
         memcpy(element->m.data, cpt->data, cpt->numel * sizeof *cpt->data);
 
         snprintf(name, sizeof name, "optimizer.v.%s", element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
+        if (cpt == NULL) return -1;
         memcpy(element->v.data, cpt->data, cpt->numel * sizeof *cpt->data);
     }
 

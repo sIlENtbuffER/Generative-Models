@@ -17,6 +17,9 @@ typedef struct
 
     DeviceTensor dW;
     DeviceTensor db;
+
+    DeviceTensor x_T;
+    DeviceTensor W_T;
 } Linear;
 
 int linear_alloc

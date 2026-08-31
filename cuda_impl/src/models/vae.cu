@@ -23,48 +23,43 @@ __global__ static void vae_forward_kernel(float *z, float *eps, const float *mu,
     z[i] = mu[i] + expf(0.5f * logvar[i]) * eps[i];
 }
 
-__global__ static void vae_backward_recon_loss_kernel(float *recon_loss, float *output, const float *x, const float *z, const float *p, size_t batch_size, size_t numel) {
+__device__ static void block_reduce_add(float *target, float value) {
     __shared__ float partial[THREADS_PER_BLOCK];
-    
-    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    partial[threadIdx.x] = 0.0f;
-    if (i < numel) {
-        partial[threadIdx.x] = fmaxf(z[i], 0.0f) - x[i] * z[i] + log1pf(expf(-fabsf(z[i])));
-        output[i] = (p[i] - x[i]) / batch_size;
-    }
+    partial[threadIdx.x] = value;
     __syncthreads();
 
-    // Tree reduction
     for (size_t stride=blockDim.x/2; stride>0; stride/=2) {
         if (threadIdx.x < stride) {
             partial[threadIdx.x] += partial[threadIdx.x + stride];
         }
         __syncthreads();
     }
-    
-    if (threadIdx.x == 0) atomicAdd(recon_loss, partial[0]);
+
+    if (threadIdx.x == 0) atomicAdd(target, partial[0]);
+}
+
+__global__ static void vae_backward_recon_loss_kernel(float *recon_loss, float *output, const float *x, const float *z, const float *p, size_t batch_size, size_t numel) {
+    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    float value = 0.0f;
+    if (i < numel) {
+        value = fmaxf(z[i], 0.0f) - x[i] * z[i] + log1pf(expf(-fabsf(z[i])));
+        output[i] = (p[i] - x[i]) / batch_size;
+    }
+
+    block_reduce_add(recon_loss, value);
 }
 
 __global__ static void vae_backward_kl_loss_kernel(float *kl_loss, const float *mu, const float *logvar, size_t numel) {
-    __shared__ float partial[THREADS_PER_BLOCK];
-    
     size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    partial[threadIdx.x] = 0.0f;
+    float value = 0.0f;
     if (i < numel) {
-        partial[threadIdx.x] = mu[i] * mu[i] + expf(logvar[i]) - 1.0f - logvar[i];
+        value = mu[i] * mu[i] + expf(logvar[i]) - 1.0f - logvar[i];
     }
-    __syncthreads();
 
-    for (size_t stride=blockDim.x/2; stride>0; stride/=2) {
-        if (threadIdx.x < stride) {
-            partial[threadIdx.x] += partial[threadIdx.x + stride];
-        }
-        __syncthreads();
-    }
-    
-    if (threadIdx.x == 0) atomicAdd(kl_loss, partial[0]);
+    block_reduce_add(kl_loss, value);
 }
 
 __global__ static void vae_backward_reparameter_kernel(float *dmu, float *dlogvar, const float *dz, const float *mu, const float *logvar, const float *eps, size_t batch_size, size_t numel) {
@@ -100,7 +95,11 @@ int vae_free(VAE *vae) {
     linear_free(&vae->fc_logvar);
     linear_free(&vae->fc2);
     linear_free(&vae->fc3);
-    
+
+    tensor_free(&vae->d_logvar);
+    tensor_free(&vae->d_recon_loss);
+    tensor_free(&vae->d_kl_loss);
+
     vae->input_dim = 0;
     vae->hidden_dim = 0;
     vae->latent_dim = 0;
@@ -159,19 +158,18 @@ int vae_backward(VAE *vae, const VAEWorkspace *vae_for_ws, VAEWorkspace *vae_bac
     int status = -1;
     loss->recon_loss = 0.0f;
     loss->kl_loss = 0.0f;
-    DeviceTensor logvar_bw = {0};
-    DeviceTensor d_recon_loss = {0};
-    DeviceTensor d_kl_loss = {0};
 
-    if (tensor_alloc_2d(&logvar_bw, vae_for_ws->enc_hidden.shape[0], vae_for_ws->enc_hidden.shape[1]) != 0) return -1;
-    if (tensor_alloc_1d(&d_recon_loss, 1) != 0 || tensor_alloc_1d(&d_kl_loss, 1) != 0) goto cleanup;
-    
-    vae_backward_recon_loss_kernel<<<cuda_blocks(vae_for_ws->output.numel), THREADS_PER_BLOCK>>>(d_recon_loss.data, vae_bac_ws->logits.data, vae_for_ws->input.data, vae_for_ws->logits.data, vae_for_ws->output.data, vae_for_ws->output.shape[0], vae_for_ws->output.numel);
-    vae_backward_kl_loss_kernel<<<cuda_blocks(vae_for_ws->mu.numel), THREADS_PER_BLOCK>>>(d_kl_loss.data, vae_for_ws->mu.data, vae_for_ws->logvar.data, vae_for_ws->mu.numel);
+    if (vae->d_logvar.data == NULL && tensor_alloc_2d(&vae->d_logvar, vae_for_ws->enc_hidden.shape[0], vae_for_ws->enc_hidden.shape[1]) != 0) return -1;
+    if (vae->d_recon_loss.data == NULL && tensor_alloc_1d(&vae->d_recon_loss, 1) != 0) return -1;
+    if (vae->d_kl_loss.data == NULL && tensor_alloc_1d(&vae->d_kl_loss, 1) != 0) return -1;
+    if (tensor_fill(&vae->d_recon_loss, 0.0f) != 0 || tensor_fill(&vae->d_kl_loss, 0.0f) != 0) return -1;
+
+    vae_backward_recon_loss_kernel<<<cuda_blocks(vae_for_ws->output.numel), THREADS_PER_BLOCK>>>(vae->d_recon_loss.data, vae_bac_ws->logits.data, vae_for_ws->input.data, vae_for_ws->logits.data, vae_for_ws->output.data, vae_for_ws->output.shape[0], vae_for_ws->output.numel);
+    vae_backward_kl_loss_kernel<<<cuda_blocks(vae_for_ws->mu.numel), THREADS_PER_BLOCK>>>(vae->d_kl_loss.data, vae_for_ws->mu.data, vae_for_ws->logvar.data, vae_for_ws->mu.numel);
     if (cudaGetLastError() != cudaSuccess) goto cleanup;
 
-    if (tensor_device_to_host(&d_recon_loss, &loss->recon_loss) != 0) goto cleanup;
-    if (tensor_device_to_host(&d_kl_loss, &loss->kl_loss) != 0) goto cleanup;
+    if (tensor_device_to_host(&vae->d_recon_loss, &loss->recon_loss) != 0) goto cleanup;
+    if (tensor_device_to_host(&vae->d_kl_loss, &loss->kl_loss) != 0) goto cleanup;
 
     loss->recon_loss /= vae_for_ws->output.shape[0];
     loss->kl_loss = 0.5 * loss->kl_loss / vae_for_ws->output.shape[0];
@@ -187,8 +185,8 @@ int vae_backward(VAE *vae, const VAEWorkspace *vae_for_ws, VAEWorkspace *vae_bac
     if (cudaGetLastError() != cudaSuccess) goto cleanup;
 
     // Encoder
-    if (linear_backward(&vae->fc_mu, &vae_for_ws->enc_hidden, &vae_bac_ws->mu, &vae_bac_ws->enc_hidden) != 0 || linear_backward(&vae->fc_logvar, &vae_for_ws->enc_hidden, &vae_bac_ws->logvar, &logvar_bw) != 0) goto cleanup;
-    vae_backward_enc_hidden_kernel<<<cuda_blocks(vae_bac_ws->enc_hidden.numel), THREADS_PER_BLOCK>>>(vae_bac_ws->enc_hidden.data, logvar_bw.data, vae_bac_ws->enc_hidden.numel);
+    if (linear_backward(&vae->fc_mu, &vae_for_ws->enc_hidden, &vae_bac_ws->mu, &vae_bac_ws->enc_hidden) != 0 || linear_backward(&vae->fc_logvar, &vae_for_ws->enc_hidden, &vae_bac_ws->logvar, &vae->d_logvar) != 0) goto cleanup;
+    vae_backward_enc_hidden_kernel<<<cuda_blocks(vae_bac_ws->enc_hidden.numel), THREADS_PER_BLOCK>>>(vae_bac_ws->enc_hidden.data, vae->d_logvar.data, vae_bac_ws->enc_hidden.numel);
     if (cudaGetLastError() != cudaSuccess) goto cleanup;
     if (relu_backward(&vae_for_ws->enc_pre, &vae_bac_ws->enc_hidden, &vae_bac_ws->enc_pre) != 0) goto cleanup;
     if (linear_backward(&vae->fc1, &vae_for_ws->input, &vae_bac_ws->enc_pre, &vae_bac_ws->input) != 0) goto cleanup;
@@ -196,9 +194,6 @@ int vae_backward(VAE *vae, const VAEWorkspace *vae_for_ws, VAEWorkspace *vae_bac
     status = 0;
 
 cleanup:
-    tensor_free(&logvar_bw);
-    tensor_free(&d_recon_loss);
-    tensor_free(&d_kl_loss);
     return status;
 }
 

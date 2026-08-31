@@ -36,7 +36,7 @@ int tensor_alloc_2d
 
 void tensor_free(DeviceTensor *tensor);
 
-void tensor_fill
+int tensor_fill
 (
     DeviceTensor *tensor,
     float value
@@ -46,49 +46,6 @@ int tensor_is_same_shape
 (
     const DeviceTensor *a,
     const DeviceTensor *b
-);
-
-int tensor_get_addr
-(
-    const DeviceTensor *tensor,
-    const size_t *indices,
-    size_t *address
-);
-
-int tensor_get
-(
-    const DeviceTensor *tensor,
-    const size_t *indices,
-    float *value
-);
-
-int tensor_set
-(
-    DeviceTensor *tensor,
-    const size_t *indices,
-    float value
-);
-
-int tensor_reshape
-(
-    DeviceTensor *tensor,
-    size_t ndim,
-    const size_t *shape
-);
-
-int tensor_matvec
-(
-    const DeviceTensor *matrix,
-    const DeviceTensor *vector,
-    DeviceTensor *output
-);
-
-int tensor_matmul_output_shape
-(
-    const DeviceTensor *a,
-    const DeviceTensor *b,
-    size_t *output_ndim,
-    size_t output_shape[TENSOR_MAX_DIMS]
 );
 
 int tensor_matmul

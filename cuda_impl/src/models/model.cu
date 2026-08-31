@@ -77,7 +77,7 @@ int model_load_checkpoint(Model *model, const Checkpoint *checkpoint) {
         snprintf(name, sizeof name, "model.%s", parameter->name);
 
         const Tensor *cpt = checkpoint_get_tensor(checkpoint, name);
-        if (tensor_host_to_device(cpt->data, parameter->value) != 0) return -1;
+        if (cpt == NULL || tensor_host_to_device(cpt->data, parameter->value) != 0) return -1;
     }
     return 0;
 }

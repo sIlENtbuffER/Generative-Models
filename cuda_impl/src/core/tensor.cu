@@ -100,9 +100,11 @@ void tensor_free(DeviceTensor *tensor) {
 }
 
 
-void tensor_fill(DeviceTensor *tensor, float value) {
+int tensor_fill(DeviceTensor *tensor, float value) {
     // whoosh!!
     tensor_fill_kernel<<<cuda_blocks(tensor->numel), THREADS_PER_BLOCK>>>(tensor->data, tensor->numel, value);
+    CUDA_CHECK(cudaGetLastError());
+    return 0;
 }
 
 int tensor_is_same_shape(const DeviceTensor *a, const DeviceTensor *b) {
@@ -111,107 +113,6 @@ int tensor_is_same_shape(const DeviceTensor *a, const DeviceTensor *b) {
         if (a->shape[i] != b->shape[i]) return 0;
     }
     return 1;
-}
-
-int tensor_get_addr(const DeviceTensor *tensor, const size_t *indices, size_t *address) {
-    size_t res = 0;
-    
-    for (size_t i=0; i<tensor->ndim; i++) {
-        if (indices[i] >= tensor->shape[i]) return -1;
-        res += indices[i] * tensor->strides[i];
-    }
-    *address = res;
-    return 0;
-}
-
-// BTW these two will be slow
-int tensor_get(const DeviceTensor *tensor, const size_t *indices, float *value) {
-    size_t addr;
-    if (tensor_get_addr(tensor, indices, &addr) != 0) return -1;
-    return cudaMemcpy(value, tensor->data + addr, sizeof *tensor->data, cudaMemcpyDeviceToHost) == cudaSuccess ? 0 : -1;
-}
-
-int tensor_set(DeviceTensor *tensor, const size_t *indices, float value) {
-    size_t addr;
-    if (tensor_get_addr(tensor, indices, &addr) != 0) return -1;
-    return cudaMemcpy(tensor->data + addr, &value, sizeof *tensor->data, cudaMemcpyHostToDevice) == cudaSuccess ? 0 : -1;
-}
-
-int tensor_reshape(DeviceTensor *tensor, size_t ndim, const size_t *shape) {
-    if (ndim > TENSOR_MAX_DIMS) return -1;
-    
-    size_t new_strides[TENSOR_MAX_DIMS] = {0};
-    size_t new_numel = 1;
-
-    for (size_t i = ndim; i-- > 0;) {
-        new_strides[i] = new_numel;
-        if (shape[i] != 0 && new_numel > SIZE_MAX / shape[i]) return -1;
-        new_numel *= shape[i];
-    }
-    if (new_numel != tensor->numel) return -1;
-
-    tensor->ndim = ndim;
-
-    for (size_t i=0; i<ndim; i++) {
-        tensor->shape[i] = shape[i];
-        tensor->strides[i] = new_strides[i];
-    }
-
-    for (size_t i=ndim; i<TENSOR_MAX_DIMS; i++) {
-        tensor->shape[i] = 0;
-        tensor->strides[i] = 0;
-    }
-
-    return 0;
-}
-
-int tensor_matvec(const DeviceTensor *matrix, const DeviceTensor *vector, DeviceTensor *output) {
-    if (matrix->ndim != 2 || vector->ndim != 1 || output->ndim != 1 || vector->shape[0] != matrix->shape[1] || output->shape[0] != matrix->shape[0]) return -1;
-
-    size_t rows = matrix->shape[0];
-    size_t cols = matrix->shape[1];
-
-    for (size_t i=0; i<rows; i++) {
-        float sum = 0.0f;
-
-        for (size_t j=0; j<cols; j++) {
-            sum += matrix->data[i * cols + j] * vector->data[j];
-        }
-
-        output->data[i] = sum;
-    }
-
-    return 0;
-}
-
-int tensor_matmul_output_shape(const DeviceTensor *a, const DeviceTensor *b, size_t *output_ndim, size_t output_shape[TENSOR_MAX_DIMS]) {
-    if (a->ndim < 2 || b->ndim < 2 || a->shape[a->ndim - 1] != b->shape[b->ndim - 2]) return -1;
-
-    size_t a_m = a->shape[a->ndim - 2];
-    size_t b_n = b->shape[b->ndim - 1];
-
-    size_t a_batch_ndim = a->ndim - 2;
-    size_t b_batch_ndim = b->ndim - 2;
-    size_t batch_ndim = a_batch_ndim > b_batch_ndim ? a_batch_ndim : b_batch_ndim;
-    size_t ndim = batch_ndim + 2;
-
-    size_t a_padding = batch_ndim - a_batch_ndim;
-    size_t b_padding = batch_ndim - b_batch_ndim;
-
-    for (size_t i=0; i<batch_ndim; i++) {
-        size_t a_dim = i < a_padding ? 1 : a->shape[i - a_padding];
-        size_t b_dim = i < b_padding ? 1 : b->shape[i - b_padding];
-
-        if (a_dim != b_dim && a_dim != 1 && b_dim != 1) return -1;
-
-        output_shape[i] = a_dim > b_dim ? a_dim : b_dim;
-    }
-
-    output_shape[batch_ndim] = a_m;
-    output_shape[batch_ndim + 1] = b_n;
-    *output_ndim = ndim;
-
-    return 0;
 }
 
 int tensor_matmul(const DeviceTensor *a, const DeviceTensor *b, DeviceTensor *output) {

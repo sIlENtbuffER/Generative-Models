@@ -68,7 +68,8 @@ int model_load_checkpoint(Model *model, const Checkpoint *checkpoint) {
     for (size_t i=0; i<model->num_parameters; i++) {
         Parameter *parameter = &model->parameters[i];
         snprintf(name, sizeof name, "model.%s", parameter->name);
-        Tensor *cpt = checkpoint_get_tensor(checkpoint, name);
+        const Tensor *cpt = checkpoint_get_tensor(checkpoint, name);
+        if (cpt == NULL) return -1;
         memcpy(parameter->value->data, cpt->data, cpt->numel * sizeof *cpt->data);
     }
     return 0;

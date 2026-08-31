@@ -129,11 +129,11 @@ int adam_load_checkpoint(Adam *adam, const Checkpoint *checkpoint) {
         AdamElement *element = &adam->adam_element[i];
         snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
-        tensor_host_to_device(cpt->data, &element->m);
+        if (cpt == NULL || tensor_host_to_device(cpt->data, &element->m) != 0) return -1;
 
         snprintf(name, sizeof name, "optimizer.v.%s", element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
-        tensor_host_to_device(cpt->data, &element->v);
+        if (cpt == NULL || tensor_host_to_device(cpt->data, &element->v) != 0) return -1;
     }
     
     return 0;
