@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef CHECKPOINT_H
 #define CHECKPOINT_H
 
@@ -15,7 +19,7 @@ struct Optimizer;
 typedef struct
 {
     char name[CHECKPOINT_TENSOR_NAME_SIZE];
-    Tensor *tensor;
+    Tensor tensor;
 } CheckpointTensor;
 
 typedef struct
@@ -38,7 +42,20 @@ int checkpoint_add_tensor
 (
     Checkpoint *checkpoint,
     const char *name,
+    const Tensor *tensor
+);
+
+int checkpoint_take_tensor
+(
+    Checkpoint *checkpoint,
+    const char *name,
     Tensor *tensor
+);
+
+const Tensor *checkpoint_get_tensor
+(
+    const Checkpoint *checkpoint,
+    const char *name
 );
 
 int checkpoint_set_metadata
@@ -82,4 +99,8 @@ int checkpoint_load
     size_t *epoch
 );
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

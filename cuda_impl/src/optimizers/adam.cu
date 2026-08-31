@@ -1,12 +1,26 @@
-#include "optimizers/adam.h"
+#include "optimizers/adam.cuh"
+#include "core/cuda.cuh"
+#include "core/tensor.h"
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <math.h>
 
+__global__ static void adam_step_kernel(float *m, float *v, float *value, const float *grad, size_t numel, float beta1, float beta2, float beta1_power, float beta2_power, float lr, float eps) {
+    size_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= numel) return;
+
+    m[i] = beta1 * m[i] + (1.0f - beta1) * grad[i];
+    v[i] = beta2 * v[i] + (1.0f - beta2) * grad[i] * grad[i];
+
+    float m_hat = m[i] / (1.0f - beta1_power);
+    float v_hat = v[i] / (1.0f - beta2_power);
+
+    value[i] -= lr * m_hat / (sqrtf(v_hat) + eps);
+}
+
 static int adam_element_alloc(AdamElement *adam_element, const Parameter *parameter) {
-    *adam_element = (AdamElement){0};
+    *adam_element = (AdamElement){};
 
     if (tensor_alloc(&adam_element->m, parameter->value->ndim, parameter->value->shape) != 0 || tensor_alloc(&adam_element->v, parameter->value->ndim, parameter->value->shape) != 0) {
         tensor_free(&adam_element->m);
@@ -18,9 +32,9 @@ static int adam_element_alloc(AdamElement *adam_element, const Parameter *parame
 }
 
 int adam_alloc(Adam *adam, const Parameter *parameters, size_t num_parameters, float lr, float beta1, float beta2, float eps) {
-    *adam = (Adam){0};
+    *adam = (Adam){};
     if (lr <= 0.0f || beta1 < 0.0f || beta1 >= 1.0f || beta2 < 0.0f || beta2 >= 1.0f || eps <= 0.0f) return -1;
-    adam->adam_element = calloc(num_parameters, sizeof *adam->adam_element);
+    adam->adam_element = (AdamElement*)calloc(num_parameters, sizeof *adam->adam_element);
     if (adam->adam_element == NULL) return -1;
     
     adam->num_parameters = num_parameters;
@@ -38,6 +52,7 @@ int adam_alloc(Adam *adam, const Parameter *parameters, size_t num_parameters, f
             return -1;
         }
     }
+
     return 0;
 }
 
@@ -48,7 +63,7 @@ void adam_free(Adam *adam) {
     }
 
     free(adam->adam_element);
-    *adam = (Adam){0};
+    *adam = (Adam){};
 }
 
 int adam_step(Adam *adam) {
@@ -58,39 +73,45 @@ int adam_step(Adam *adam) {
 
     for (size_t p=0; p<adam->num_parameters; p++) {
         AdamElement *element = &adam->adam_element[p];
-        Tensor *value = element->parameter.value;
-        const Tensor *grad = element->parameter.grad;
-        for (size_t i=0; i<value->numel; i++) {
-            float g = grad->data[i];
-
-            element->m.data[i] = adam->beta1 * element->m.data[i] + (1.0f - adam->beta1) * g;
-            element->v.data[i] = adam->beta2 * element->v.data[i] + (1.0f - adam->beta2) * g * g;
-
-            float m_hat = element->m.data[i] / (1.0f - adam->beta1_power);
-            float v_hat = element->v.data[i] / (1.0f - adam->beta2_power);
-
-            value->data[i] -= adam->lr * m_hat / (sqrtf(v_hat) + adam->eps);
-        }
+        DeviceTensor *value = element->parameter.value;
+        const DeviceTensor *grad = element->parameter.grad;
+        adam_step_kernel<<<cuda_blocks(value->numel), THREADS_PER_BLOCK>>>(
+        element->m.data, element->v.data, value->data, grad->data,
+        value->numel, adam->beta1, adam->beta2, adam->beta1_power, adam->beta2_power, adam->lr, adam->eps);
     }
+
+    CUDA_CHECK(cudaGetLastError());
     return 0;
 }
 
 int adam_save_checkpoint(Adam *adam, Checkpoint *checkpoint) {
     char name[CHECKPOINT_TENSOR_NAME_SIZE];
+    Tensor host = {};
 
     for (size_t i=0; i<adam->num_parameters; i++) {
         AdamElement *element = &adam->adam_element[i];
-        snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
-        if (checkpoint_add_tensor(checkpoint, name, &element->m) != 0) return -1;
 
+        if (tensor_alloc(&host, element->m.ndim, element->m.shape) != 0) goto fail;
+        if (tensor_device_to_host(&element->m, host.data) != 0) goto fail;
+        snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
+        if (checkpoint_take_tensor(checkpoint, name, &host) != 0) goto fail;
+
+        if (tensor_alloc(&host, element->v.ndim, element->v.shape) != 0) goto fail;
+        if (tensor_device_to_host(&element->v, host.data) != 0) goto fail;
         snprintf(name, sizeof name, "optimizer.v.%s", element->parameter.name);
-        if (checkpoint_add_tensor(checkpoint, name, &element->v) != 0) return -1;
+        if (checkpoint_take_tensor(checkpoint, name, &host) != 0) goto fail;
     }
 
     char step[32];
     snprintf(step, sizeof step, "%zu", adam->step);
 
+    tensor_free(&host);
+
     return checkpoint_set_metadata(checkpoint, "optimizer_step", step);
+
+fail:
+    tensor_free(&host);
+    return -1;
 }
 
 int adam_load_checkpoint(Adam *adam, const Checkpoint *checkpoint) {
@@ -108,14 +129,12 @@ int adam_load_checkpoint(Adam *adam, const Checkpoint *checkpoint) {
         AdamElement *element = &adam->adam_element[i];
         snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
-        if (cpt == NULL) return -1;
-        memcpy(element->m.data, cpt->data, cpt->numel * sizeof *cpt->data);
+        if (cpt == NULL || tensor_host_to_device(cpt->data, &element->m) != 0) return -1;
 
         snprintf(name, sizeof name, "optimizer.v.%s", element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
-        if (cpt == NULL) return -1;
-        memcpy(element->v.data, cpt->data, cpt->numel * sizeof *cpt->data);
+        if (cpt == NULL || tensor_host_to_device(cpt->data, &element->v) != 0) return -1;
     }
-
+    
     return 0;
 }

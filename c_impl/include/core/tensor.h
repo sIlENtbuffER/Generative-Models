@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef TENSOR_H
 #define TENSOR_H
 
@@ -105,4 +109,8 @@ int tensor_transpose
     Tensor *output
 );
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

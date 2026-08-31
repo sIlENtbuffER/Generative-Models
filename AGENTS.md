@@ -14,7 +14,7 @@ Therefore:
 ## Rules for working with agents
 
 1. **When unsure, ask — don't guess.** For naming, design choices, roadmap ordering, or anything else this file doesn't spell out, ask the user directly instead of assuming and proceeding.
-2. **Default to proposing, not editing.** When the user asks a question or is just discussing something, explain what you'd change and where first, and only make the edit once they explicitly say to (e.g. "go ahead," "yes do that") — unless they've directly asked you to implement or modify something.
+2. **Default to proposing, not editing.** When the user asks a question or is just discussing something, explain what you'd change and where first, and only make the edit once they explicitly say to (e.g. "go ahead," "yes do that") — unless they've directly asked you to implement or modify something. Even requests that sound implementation-directed ("give me the code," "show me the implementation") default to an in-chat explanation (which may include full code) — not a file write. Treat only language that explicitly targets the repo/files (e.g. "write it to the file," "implement this in the repo") as authorization for Edit/Write.
 3. Treat the repo's actual current contents as the source of truth for progress (e.g. what's already in `numpy_impl/models/`). This file doesn't track a progress list and doesn't need to be kept in sync with every change.
 
 ## Learning roadmap

@@ -70,10 +70,16 @@ Both implementations read [`configs/default.json`](configs/default.json) for hyp
 python numpy_impl/train.py
 ```
 
-### C
+### C / CUDA
 
 ```bash
 cmake -G Ninja -B build
 cmake --build build
-./build/vae_train_c
+```
+
+This always builds `./build/genmodels_train_c`. If a CUDA toolkit is available, it's picked up automatically and `./build/genmodels_train_cuda` is built alongside it.
+
+```bash
+./build/genmodels_train_c       # CPU
+./build/genmodels_train_cuda    # GPU, if CUDA is available
 ```

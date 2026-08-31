@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
@@ -40,4 +44,8 @@ int config_load
     const char *path
 );
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
