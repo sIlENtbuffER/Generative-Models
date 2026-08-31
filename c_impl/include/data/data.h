@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef DATA_H
 #define DATA_H
 
@@ -45,4 +49,8 @@ int data_write_png_grid
     const char *path
 );
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

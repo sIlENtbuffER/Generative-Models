@@ -35,25 +35,56 @@ static int read_u64_le(FILE *file, uint64_t *value) {
 }
 
 void checkpoint_free(Checkpoint *checkpoint) {
+    for (size_t i = 0; i < checkpoint->num_tensors; i++) {
+        tensor_free(&checkpoint->tensors[i].tensor);
+    }
+
     free(checkpoint->tensors);
     free(checkpoint->metadata);
     *checkpoint = (Checkpoint){0};
 }
 
-int checkpoint_add_tensor(Checkpoint *checkpoint, const char *name, Tensor *tensor) {
+int checkpoint_add_tensor(Checkpoint *checkpoint, const char *name, const Tensor *tensor) {
+    Tensor copy = {0};
+
+    if (tensor_alloc(&copy, tensor->ndim, tensor->shape) != 0) return -1;
+    memcpy(copy.data, tensor->data, tensor->numel * sizeof *tensor->data);
+
+    if (checkpoint_take_tensor(checkpoint, name, &copy) != 0) {
+        tensor_free(&copy);
+        return -1;
+    }
+
+    return 0;
+}
+
+int checkpoint_take_tensor(Checkpoint *checkpoint, const char *name, Tensor *tensor) {
     size_t new_num_tensors = checkpoint->num_tensors + 1;
     CheckpointTensor *new_tensors = realloc(checkpoint->tensors, new_num_tensors * sizeof *new_tensors);
     if (new_tensors == NULL) return -1;
 
     checkpoint->tensors = new_tensors;
+
+    CheckpointTensor *entry = &checkpoint->tensors[checkpoint->num_tensors];
+    *entry = (CheckpointTensor){0};
+    snprintf(entry->name, sizeof entry->name, "%s", name);
+
+    entry->tensor = *tensor;
+    *tensor = (Tensor){0};
     checkpoint->num_tensors = new_num_tensors;
 
-    CheckpointTensor *entry = &checkpoint->tensors[new_num_tensors - 1];
-    snprintf(entry->name, sizeof entry->name, "%s", name);
-    entry->tensor = tensor;
-
     return 0;
-} 
+}
+
+const Tensor *checkpoint_get_tensor(const Checkpoint *checkpoint, const char *name) {
+    for (size_t i=0; i<checkpoint->num_tensors; i++) {
+        if (strcmp(checkpoint->tensors[i].name, name) == 0) {
+            return &checkpoint->tensors[i].tensor;
+        }
+    }
+
+    return NULL;
+}
 
 int checkpoint_set_metadata(Checkpoint *checkpoint, const char *key, const char *value) {
     for (size_t i=0; i<checkpoint->num_metadata; i++) {
@@ -107,7 +138,7 @@ int checkpoint_write(const Checkpoint *checkpoint, const char *path) {
 
     for (size_t i=0; i<checkpoint->num_tensors; i++) {
         const CheckpointTensor *entry = &checkpoint->tensors[i];
-        const Tensor *tensor = entry->tensor;
+        const Tensor *tensor = &entry->tensor;
 
         if (tensor->numel > SIZE_MAX / sizeof(float)) goto cleanup;
         size_t data_size = tensor->numel * sizeof(float);
@@ -160,7 +191,7 @@ int checkpoint_write(const Checkpoint *checkpoint, const char *path) {
     }
 
     for (size_t i=0; i<checkpoint->num_tensors; i++) {
-        const Tensor *tensor = checkpoint->tensors[i].tensor;
+        const Tensor *tensor = &checkpoint->tensors[i].tensor;
         if (fwrite(tensor->data, sizeof(float), tensor->numel, file) != tensor->numel) goto cleanup;
     }
 
@@ -208,7 +239,7 @@ int checkpoint_read(Checkpoint *checkpoint, const char *path) {
 
     for (size_t i=0; i<checkpoint->num_tensors; i++) {
         CheckpointTensor *entry = &checkpoint->tensors[i];
-        Tensor *tensor = entry->tensor;
+        Tensor *tensor = &entry->tensor;
         cJSON *tensor_json = cJSON_GetObjectItemCaseSensitive(root, entry->name);
 
         if (!cJSON_IsObject(tensor_json)) goto cleanup;
@@ -283,6 +314,7 @@ int checkpoint_load(const char *path, struct Model *model, struct Optimizer *opt
     if (epoch_text == NULL) goto cleanup;
     *epoch = (size_t)strtoull(epoch_text, NULL, 10);
 
+    if (model_load_checkpoint(model, &checkpoint) != 0) goto cleanup;
     if (optimizer_load_checkpoint(optimizer, &checkpoint) != 0) goto cleanup;
     
     status = 0;

@@ -1,13 +1,17 @@
-#ifndef MODEL_H
-#define MODEL_H
+#ifndef MODEL_CUH
+#define MODEL_CUH
 
-#include "core/parameter.h"
-#include "core/rng.h"
+#include "core/parameter.cuh"
+#include "core/rng.cuh"
 #include "tools/checkpoint.h"
-#include "optimizers/optimizer.h"
+#include "optimizers/optimizer.cuh"
 #include "data/data.h"
 
 #include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum
 {
@@ -31,7 +35,7 @@ int model_build
     size_t input_dim,
     size_t hidden_dim,
     size_t latent_dim,
-    RNG *rng
+    uint64_t *seed
 );
 
 void model_free(Model *model);
@@ -47,5 +51,9 @@ int model_load_checkpoint
     Model *model,
     const Checkpoint *checkpoint
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
