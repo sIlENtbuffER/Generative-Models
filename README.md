@@ -48,7 +48,9 @@ sed 's/gcc_linux-64/clang_osx-arm64/' environment.yml > /tmp/environment.yml && 
 sed 's/gcc_linux-64/gcc_linux-aarch64/' environment.yml > /tmp/environment.yml && conda env create -f /tmp/environment.yml
 ```
 
-### Dataset
+### Datasets
+
+MNIST (grayscale, 28×28):
 
 ```bash
 mkdir -p data/MNIST/raw
@@ -59,6 +61,16 @@ for f in train-images-idx3-ubyte train-labels-idx1-ubyte t10k-images-idx3-ubyte 
 done
 cd -
 ```
+
+CelebA (color, 64×64):
+
+```bash
+mkdir -p data/CelebA
+curl -r 0-250000000 -o data/CelebA/img_align_celeba.zip "https://huggingface.co/datasets/Yuehao/celeba/resolve/main/img_align_celeba.zip"
+python scripts/prepare_celeba.py
+```
+
+JPEG decoding isn't worth hand-writing, so [`scripts/prepare_celeba.py`](scripts/prepare_celeba.py) does the preprocessing once with Pillow. It center-crops each image and resizes to 64×64, and writes `data/CelebA/celeba.bin` as a small header plus raw CHW `uint8` pixels. `COUNT` at the top of the script sets how many images to use; raise the byte range above it if you want more.
 
 ## Running
 

@@ -33,9 +33,21 @@ cleanup:
 }
 
 static int creat_dir(const char *path) {
-    if (mkdir(path, 0755) == 0) return 0;
-    if (errno == EEXIST) return 0;
-    fprintf(stderr, "Cannot create '%s': %s\n", path, strerror(errno));
+    char buffer[512];
+    snprintf(buffer, sizeof buffer, "%s", path);
+
+    // Create each parent in turn by cutting the path short at every separator
+    for (char *slash = strchr(buffer + 1, '/'); slash != NULL; slash = strchr(slash + 1, '/')) {
+        *slash = '\0';
+        if (mkdir(buffer, 0755) != 0 && errno != EEXIST) goto failed;
+        *slash = '/';
+    }
+    if (mkdir(buffer, 0755) != 0 && errno != EEXIST) goto failed;
+
+    return 0;
+
+failed:
+    fprintf(stderr, "Cannot create '%s': %s\n", buffer, strerror(errno));
     return -1;
 }
 

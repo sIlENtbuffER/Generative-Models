@@ -62,7 +62,7 @@ int vae_sample(const VAE *vae, RNG *rng, Data *output){
     if (linear_forward(&vae->fc2, &vaews.z, &vaews.dec_pre) != 0 || relu_forward(&vaews.dec_pre, &vaews.dec_hidden) != 0) goto cleanup;
     if (linear_forward(&vae->fc3, &vaews.dec_hidden, &vaews.logits) != 0 || sigmoid_forward(&vaews.logits, &vaews.output) != 0) goto cleanup;
     
-    for (size_t i=0; i<output->count * output->rows * output->cols; i++) {
+    for (size_t i=0; i<output->count * output->channels * output->rows * output->cols; i++) {
         output->pixels[i] = (uint8_t)(vaews.output.data[i] * 255.0f);
     }
 

@@ -2,8 +2,8 @@
   "seed": 42,
 
   "dataset": {
-    "name": "mnist",
-    "data_dir": "data/MNIST/raw"
+    "name": "celeba",
+    "data_dir": "data/CelebA"
   },
 
   "model": {
@@ -28,12 +28,12 @@
 
   "sampling": {
     "num_samples": 64,
-    "sample_dir": "samples/vae_mnist_adam"
+    "sample_dir": "samples/vae_celeba_adam"
   },
 
   "checkpoint": {
-    "checkpoint_dir": "checkpoints/vae_mnist_adam",
+    "checkpoint_dir": "checkpoints/vae_celeba_adam",
     "load_checkpoint": false,
-    "load_checkpoint_path": "checkpoints/vae_mnist_adam/epoch_1.safetensors"
+    "load_checkpoint_path": "checkpoints/vae_celeba_adam/epoch_1.safetensors"
   }
 }
