@@ -62,12 +62,12 @@ cd -
 
 ## Running
 
-Both implementations read [`configs/default.json`](configs/default.json) for hyperparameters, dataset, and where to write samples/checkpoints.
+Both implementations take a JSON config path as their first argument — hyperparameters, dataset, and where to write samples/checkpoints — and fall back to [`configs/default.json`](configs/default.json) when none is given.
 
 ### NumPy
 
 ```bash
-python numpy_impl/train.py
+python numpy_impl/train.py configs/default.json
 ```
 
 ### C / CUDA
@@ -80,6 +80,6 @@ cmake --build build
 This always builds `./build/genmodels_train_c`. If a CUDA toolkit is available, it's picked up automatically and `./build/genmodels_train_cuda` is built alongside it.
 
 ```bash
-./build/genmodels_train_c       # CPU
-./build/genmodels_train_cuda    # GPU, if CUDA is available
+./build/genmodels_train_c configs/default.json       # CPU
+./build/genmodels_train_cuda configs/default.json    # GPU, if CUDA is available
 ```

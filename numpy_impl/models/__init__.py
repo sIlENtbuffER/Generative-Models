@@ -1,11 +1,14 @@
 from .vae import VAE
+from .gan import GAN
 
 __all__ = [
     "VAE",
+    "GAN",
 ]
 
 MODELS = {
     "vae": VAE,
+    "gan": GAN,
 }
 
 def build_model(cfg, rng, input_dim):
