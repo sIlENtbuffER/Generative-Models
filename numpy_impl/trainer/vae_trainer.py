@@ -15,7 +15,7 @@ class VAETrainer(Trainer):
         loss = {"loss": 0.0, "recon_loss": 0.0, "kl_loss": 0.0}
         seen = 0
 
-        for x in batches(x=data, batch_size=self.batch_size, rng=rng):
+        for x in batches(x=data, batch_size=self.batch_size, rng=rng, low=self.low, high=self.high):
             x_hat = self.model.forward(x)
             metrics = self.model.backward(x=x, x_hat=x_hat)
             self.optimizer.step()

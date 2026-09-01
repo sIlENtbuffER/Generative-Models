@@ -34,13 +34,15 @@ class Trainer:
             self.save_checkpoints(epoch)
 
     def save_samples(self, epoch):
-        samples = self.sample(self.num_samples)
+        samples = (self.sample(self.num_samples) - self.low) / (self.high - self.low)
         cols = int(np.ceil(np.sqrt(self.num_samples)))
         rows = int(np.ceil(self.num_samples / cols))
-        images = samples.reshape(self.num_samples, self.shape[0], self.shape[1])
+        images = samples.reshape(self.num_samples, *self.shape)
+        gray = self.shape[0] == 1
+        images = images[:, 0] if gray else images.transpose(0, 2, 3, 1) # N,H,W,C
         fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(rows, cols))
         for image, ax in zip(images, axes.flat):
-            ax.imshow(image, cmap="gray", vmin=self.low, vmax=self.high)
+            ax.imshow(image, cmap="gray" if gray else None, vmin=0.0, vmax=1.0)
             ax.axis("off")
 
         path = os.path.join(self.sample_dir, f"epoch_{epoch}.png")
