@@ -8,6 +8,7 @@ dependencies:
   - python=3.12
   - numpy=2.5
   - matplotlib-base=3.11
+  - pillow=12.3
   - gcc_linux-64
   - cmake
   - ninja

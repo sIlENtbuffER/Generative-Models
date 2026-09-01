@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
     rng_seed(&rng, config.seed, 1);
     if (data_load(&data, config.dataset_name, config.data_dir) != 0) goto cleanup;
-    if (model_build(&model, config.model_name, data.rows * data.cols, config.hidden_dim, config.latent_dim, &rng) != 0) goto cleanup;
+    if (model_build(&model, config.model_name, data.channels * data.rows * data.cols, config.hidden_dim, config.latent_dim, &rng) != 0) goto cleanup;
     if (optimizer_build(&optimizer, config.optimizer_name, model.parameters, model.num_parameters, config.learning_rate, config.beta1, config.beta2, config.eps) != 0) goto cleanup;
 
     if (config.load_checkpoint) {

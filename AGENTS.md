@@ -72,8 +72,9 @@ If PyTorch-related code or artifacts show up in the repo (e.g. `checkpoints/vae.
 
 - `numpy_impl/`: the numpy reference implementation — `models/`, `modules/`, `optimizer/`, `data.py`, `trainer.py`, `train.py`.
 - `c_impl/`: the C implementation. Both `include/` and `src/` are layered as `core/ data/ models/ modules/ optimizers/ tools/ trainer/`; `third_party/` holds vendored single-file libraries (cJSON, stb_image_write).
-- `cuda_impl/`: the CUDA implementation. Currently empty; expected to mirror `c_impl`'s directory structure.
+- `cuda_impl/`: the CUDA implementation, mirroring `c_impl`'s directory structure. It reuses `c_impl`'s `core/ data/ tools/` sources rather than duplicating them, so a change there affects both builds.
 - `configs/`: JSON configs (dataset / model / optimizer / training / sampling / checkpoint).
+- `scripts/`: one-off data preparation scripts. Unlike `numpy_impl/`, these may use third-party libraries (e.g. Pillow for JPEG decoding).
 - `data/`, `samples/`, `checkpoints/`, `build/`: local artifacts, already excluded via `.gitignore` — not committed.
 
 ## Environment
@@ -82,7 +83,8 @@ If PyTorch-related code or artifacts show up in the repo (e.g. `checkpoints/vae.
 - Package install flow: after `conda create` sets up the environment, always install libraries with `<env>/bin/uv pip install --python <env>/bin/python <pkg>`. `uv tool install` is only for installing CLI tools (e.g. ruff) — never use it for libraries that need to be imported, since it installs into an isolated directory that won't be importable.
 - Don't install torch or CUDA pip packages in the environment. Add GPU-related dependencies only once CUDA work actually starts, and only as needed (NVIDIA driver, CUDA Toolkit, cuBLAS/cuDNN if needed).
 - Invoke the Python interpreter by absolute path — don't rely on wherever bare `python` happens to resolve.
-- The C build uses CMake + Ninja (`cmake -G Ninja -B build && cmake --build build`, see [CMakeLists.txt](CMakeLists.txt)). When `cuda_impl/` gets real sources, add a CUDA target there rather than restructuring the existing one.
+- The build uses CMake + Ninja (`cmake -G Ninja -B build && cmake --build build`, see [CMakeLists.txt](CMakeLists.txt)). The CUDA target is added automatically when a CUDA compiler is found.
+- Build from an activated environment (`conda activate <env>`), not just with `<env>/bin` prepended to `PATH`: the cuda-nvcc activation script sets `NVCC_PREPEND_FLAGS=-ccbin=$CXX`, and without it nvcc falls back to the system `g++`, mixing system glibc headers with conda's sysroot libc. The CUDA target then fails to link (`undefined reference to __isoc23_strtoull`) for reasons unrelated to the code — delete `build/CMakeFiles/genmodels_train_cuda.dir` before rebuilding correctly.
 
 ## Code style
 

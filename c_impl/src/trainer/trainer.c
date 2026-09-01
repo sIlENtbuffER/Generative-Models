@@ -9,7 +9,7 @@ int trainer_train(Model *model, Optimizer *optimizer, RNG *rng, size_t batch_siz
     char checkpoint_path[1024];
     int status = -1;
 
-    if (data_alloc(&samples, num_samples, data->rows, data->cols) != 0) return -1;
+    if (data_alloc(&samples, num_samples, data->channels, data->rows, data->cols) != 0) return -1;
 
     for (size_t epoch=start_epoch; epoch <= epochs; epoch++) {
         if (model->type == MODEL_VAE) {

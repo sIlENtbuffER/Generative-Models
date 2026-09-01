@@ -40,6 +40,7 @@ int mnist_load(Data *images, const char *data_dir) {
     if (fread(pixels, 1, total_size, file) != total_size) goto cleanup;
 
     images->count = count;
+    images->channels = 1;
     images->rows = rows;
     images->cols = cols;
     images->pixels = pixels;

@@ -9,12 +9,22 @@ def load_mnist_images(data_dir="./data/MNIST/raw"):
     with open(path, "rb") as f:
         magic, num_images, rows, cols = struct.unpack(">IIII", f.read(16))
         images = np.frombuffer(f.read(), dtype=np.uint8)
-    images = images.reshape(num_images, rows*cols).astype(np.float32) / 255.0
-    image_shape = (rows, cols)
+    images = images.reshape(num_images, rows*cols)
+    image_shape = (1, rows, cols)
+    return images, image_shape
+
+def load_celeba_images(data_dir="./data/CelebA"):
+    path = os.path.join(data_dir, "celeba.bin")
+    with open(path, "rb") as f:
+        num_images, channels, rows, cols = struct.unpack("<IIII", f.read(16))
+        images = np.frombuffer(f.read(), dtype=np.uint8)
+    images = images.reshape(num_images, channels*rows*cols)
+    image_shape = (channels, rows, cols)
     return images, image_shape
 
 DATASET_LOADERS = {
     "mnist" : load_mnist_images,
+    "celeba" : load_celeba_images,
 }
 
 def load_dataset(cfg):
@@ -30,4 +40,4 @@ def batches(x, batch_size, rng, shuffle=True):
 
     for start in range(0, len(x), batch_size):
         batch_indices = indices[start:start+batch_size]
-        yield x[batch_indices]
+        yield x[batch_indices].astype(np.float32) / 255.0

@@ -14,6 +14,7 @@ extern "C" {
 typedef struct
 {
     size_t count;
+    size_t channels;
     size_t rows;
     size_t cols;
     uint8_t *pixels;
@@ -23,6 +24,7 @@ int data_alloc
 (
     Data *data,
     size_t count,
+    size_t channels,
     size_t rows,
     size_t cols
 );
