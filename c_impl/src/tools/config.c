@@ -51,6 +51,66 @@ failed:
     return -1;
 }
 
+static const cJSON *get_node(const cJSON *parent, const char *key) {
+    const cJSON *node = cJSON_GetObjectItemCaseSensitive(parent, key);
+    if (node == NULL) fprintf(stderr, "Config is missing '%s'\n", key);
+    return node;
+}
+
+static int get_string(const cJSON *parent, const char *key, char *value, size_t size) {
+    const cJSON *node = get_node(parent, key);
+    if (!cJSON_IsString(node)) return -1;
+    snprintf(value, size, "%s", node->valuestring);
+    return 0;
+}
+
+static int get_number(const cJSON *parent, const char *key, double *value) {
+    const cJSON *node = get_node(parent, key);
+    if (!cJSON_IsNumber(node)) return -1;
+    *value = node->valuedouble;
+    return 0;
+}
+
+static int get_bool(const cJSON *parent, const char *key, bool *value) {
+    const cJSON *node = get_node(parent, key);
+    if (!cJSON_IsBool(node)) return -1;
+    *value = cJSON_IsTrue(node);
+    return 0;
+}
+
+int config_get_size(const cJSON *node, const char *key, size_t *value) {
+    double number;
+    if (get_number(node, key, &number) != 0) return -1;
+    *value = (size_t)number;
+    return 0;
+}
+
+int config_get_size_array(const cJSON *node, const char *key, size_t **values, size_t *count) {
+    const cJSON *array = get_node(node, key);
+    if (!cJSON_IsArray(array)) return -1;
+
+    *count = (size_t)cJSON_GetArraySize(array);
+    *values = malloc(*count * sizeof **values);
+    if (*values == NULL) return -1;
+
+    for (size_t i=0; i<*count; i++) {
+        const cJSON *item = cJSON_GetArrayItem(array, (int)i);
+        if (!cJSON_IsNumber(item)) {
+            free(*values);
+            *values = NULL;
+            return -1;
+        }
+        (*values)[i] = (size_t)item->valuedouble;
+    }
+    return 0;
+}
+
+void config_free(Config *config) {
+    cJSON_Delete(config->root);
+    config->root = NULL;
+    config->model = NULL;
+}
+
 int config_load(Config *config, const char *path) {
     int status = -1;
     char *text = read_file(path);
@@ -66,35 +126,46 @@ int config_load(Config *config, const char *path) {
         goto cleanup;
     }
 
-    const cJSON *dataset = cJSON_GetObjectItemCaseSensitive(root, "dataset");
-    const cJSON *model = cJSON_GetObjectItemCaseSensitive(root, "model");
-    const cJSON *optimizer = cJSON_GetObjectItemCaseSensitive(root, "optimizer");
-    const cJSON *training = cJSON_GetObjectItemCaseSensitive(root, "training");
-    const cJSON *sampling = cJSON_GetObjectItemCaseSensitive(root, "sampling");
-    const cJSON *checkpoint = cJSON_GetObjectItemCaseSensitive(root, "checkpoint");
+    const cJSON *dataset = get_node(root, "dataset");
+    const cJSON *model = get_node(root, "model");
+    const cJSON *optimizer = get_node(root, "optimizer");
+    const cJSON *training = get_node(root, "training");
+    const cJSON *sampling = get_node(root, "sampling");
+    const cJSON *checkpoint = get_node(root, "checkpoint");
+    if (dataset == NULL || model == NULL || optimizer == NULL || training == NULL || sampling == NULL || checkpoint == NULL) goto cleanup;
 
-    config->seed = (uint64_t)cJSON_GetObjectItemCaseSensitive(root, "seed")->valuedouble;
-    snprintf(config->dataset_name, sizeof(config->dataset_name), "%s", cJSON_GetObjectItemCaseSensitive(dataset, "name")->valuestring);
-    snprintf(config->data_dir, sizeof(config->data_dir), "%s", cJSON_GetObjectItemCaseSensitive(dataset, "data_dir")->valuestring);
-    snprintf(config->model_name, sizeof(config->model_name), "%s", cJSON_GetObjectItemCaseSensitive(model, "name")->valuestring);
-    config->hidden_dim = (size_t)cJSON_GetObjectItemCaseSensitive(model, "hidden_dim")->valuedouble;
-    config->latent_dim = (size_t)cJSON_GetObjectItemCaseSensitive(model, "latent_dim")->valuedouble;
-    snprintf(config->optimizer_name, sizeof(config->optimizer_name), "%s", cJSON_GetObjectItemCaseSensitive(optimizer, "name")->valuestring);
-    config->learning_rate = (float)cJSON_GetObjectItemCaseSensitive(optimizer, "lr")->valuedouble;
-    config->beta1 = (float)cJSON_GetObjectItemCaseSensitive(optimizer, "beta1")->valuedouble;
-    config->beta2 = (float)cJSON_GetObjectItemCaseSensitive(optimizer, "beta2")->valuedouble;
-    config->eps = (float)cJSON_GetObjectItemCaseSensitive(optimizer, "eps")->valuedouble;
-    config->training_enabled = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(training, "enabled"));
-    config->epochs = (size_t)cJSON_GetObjectItemCaseSensitive(training, "epochs")->valuedouble;
-    config->batch_size = (size_t)cJSON_GetObjectItemCaseSensitive(training, "batch_size")->valuedouble;
-    config->num_samples = (size_t)cJSON_GetObjectItemCaseSensitive(sampling, "num_samples")->valuedouble;
-    snprintf(config->sample_dir, sizeof(config->sample_dir), "%s", cJSON_GetObjectItemCaseSensitive(sampling, "sample_dir")->valuestring);
-    snprintf(config->checkpoint_dir, sizeof(config->checkpoint_dir), "%s", cJSON_GetObjectItemCaseSensitive(checkpoint, "checkpoint_dir")->valuestring);
-    config->load_checkpoint = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(checkpoint, "load_checkpoint"));
-    snprintf(config->checkpoint_path, sizeof(config->checkpoint_path), "%s", cJSON_GetObjectItemCaseSensitive(checkpoint, "load_checkpoint_path")->valuestring);
+    double seed;
+    double learning_rate, beta1, beta2, eps;
+    if (get_number(root, "seed", &seed) != 0) goto cleanup;
+    if (get_string(dataset, "name", config->dataset_name, sizeof config->dataset_name) != 0) goto cleanup;
+    if (get_string(dataset, "data_dir", config->data_dir, sizeof config->data_dir) != 0) goto cleanup;
+    if (get_string(model, "name", config->model_name, sizeof config->model_name) != 0) goto cleanup;
+    if (get_string(optimizer, "name", config->optimizer_name, sizeof config->optimizer_name) != 0) goto cleanup;
+    if (get_number(optimizer, "lr", &learning_rate) != 0) goto cleanup;
+    if (get_number(optimizer, "beta1", &beta1) != 0) goto cleanup;
+    if (get_number(optimizer, "beta2", &beta2) != 0) goto cleanup;
+    if (get_number(optimizer, "eps", &eps) != 0) goto cleanup;
+    if (get_bool(training, "enabled", &config->training_enabled) != 0) goto cleanup;
+    if (config_get_size(training, "epochs", &config->epochs) != 0) goto cleanup;
+    if (config_get_size(training, "batch_size", &config->batch_size) != 0) goto cleanup;
+    if (config_get_size(sampling, "num_samples", &config->num_samples) != 0) goto cleanup;
+    if (get_string(sampling, "sample_dir", config->sample_dir, sizeof config->sample_dir) != 0) goto cleanup;
+    if (get_string(checkpoint, "checkpoint_dir", config->checkpoint_dir, sizeof config->checkpoint_dir) != 0) goto cleanup;
+    if (get_bool(checkpoint, "load_checkpoint", &config->load_checkpoint) != 0) goto cleanup;
+    if (get_string(checkpoint, "load_checkpoint_path", config->checkpoint_path, sizeof config->checkpoint_path) != 0) goto cleanup;
+
+    config->seed = (uint64_t)seed;
+    config->learning_rate = (float)learning_rate;
+    config->beta1 = (float)beta1;
+    config->beta2 = (float)beta2;
+    config->eps = (float)eps;
+    config->root = root;
+    config->model = model;
 
     if (creat_dir(config->checkpoint_dir) != 0 || creat_dir(config->sample_dir) != 0) goto cleanup;
-    status = 0;
+
+    free(text);
+    return 0;
 
 cleanup:
     cJSON_Delete(root);

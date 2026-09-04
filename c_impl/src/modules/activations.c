@@ -48,3 +48,44 @@ int sigmoid_backward(const Tensor *fw_output, const Tensor *grad, Tensor *output
 
     return 0;
 }
+
+int leaky_relu_forward(const Tensor *x, float slope, Tensor *output) {
+    if (!tensor_is_same_shape(x, output)) return -1;
+
+    for (size_t i=0; i<x->numel; i++) {
+        output->data[i] = x->data[i] > 0.0f? x->data[i] : x->data[i] * slope;
+    }
+
+    return 0;
+}
+
+int leaky_relu_backward(const Tensor *fw_input, const Tensor *grad, float slope, Tensor *output) {
+    if (!tensor_is_same_shape(grad, fw_input) || !tensor_is_same_shape(grad, output)) return -1;
+
+    for (size_t i=0; i<grad->numel; i++) {
+        output->data[i] = fw_input->data[i] > 0.0f? grad->data[i] : grad->data[i] * slope;
+    }
+
+    return 0;
+}
+
+int tanh_forward(const Tensor *x, Tensor *output) {
+    if (!tensor_is_same_shape(x, output)) return -1;
+
+    for (size_t i=0; i<x->numel; i++) {
+        output->data[i] = tanhf(x->data[i]);
+    }
+
+    return 0;
+}
+
+int tanh_backward(const Tensor *fw_output, const Tensor *grad, Tensor *output) {
+    if (!tensor_is_same_shape(grad, fw_output) || !tensor_is_same_shape(grad, output)) return -1;
+
+    for (size_t i=0; i<grad->numel; i++) {
+        output->data[i] = (1 - fw_output->data[i] * fw_output->data[i]) * grad->data[i];
+    }
+
+    return 0;
+}
+

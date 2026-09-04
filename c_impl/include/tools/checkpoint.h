@@ -99,6 +99,24 @@ int checkpoint_load
     size_t *epoch
 );
 
+int checkpoint_save_many
+(
+    const char *path,
+    struct Model *model,
+    struct Optimizer *const *optimizers,
+    size_t num_optimizers,
+    size_t epoch
+);
+
+int checkpoint_load_many
+(
+    const char *path,
+    struct Model *model,
+    struct Optimizer *const *optimizers,
+    size_t num_optimizers,
+    size_t *epoch
+);
+
 #endif
 
 #ifdef __cplusplus

@@ -18,12 +18,16 @@ int main(int argc, char **argv) {
     Model model = {};
     Optimizer optimizer = {};
     size_t completed_epoch = 0;
+    size_t hidden_dim = 0;
+    size_t latent_dim = 0;
 
     if (config_load(&config, config_path) != 0) goto cleanup;
 
     seed = config.seed;
     if (data_load(&data, config.dataset_name, config.data_dir) != 0) goto cleanup;
-    if (model_build(&model, config.model_name, data.channels * data.rows * data.cols, config.hidden_dim, config.latent_dim, &seed) != 0) goto cleanup;
+    if (config_get_size(config.model, "hidden_dim", &hidden_dim) != 0) goto cleanup;
+    if (config_get_size(config.model, "latent_dim", &latent_dim) != 0) goto cleanup;
+    if (model_build(&model, config.model_name, data.channels * data.rows * data.cols, hidden_dim, latent_dim, &seed) != 0) goto cleanup;
     if (optimizer_build(&optimizer, config.optimizer_name, model.parameters, model.num_parameters, config.learning_rate, config.beta1, config.beta2, config.eps) != 0) goto cleanup;
 
     if (config.load_checkpoint) {
@@ -41,5 +45,6 @@ cleanup:
     optimizer_free(&optimizer);
     model_free(&model);
     data_free(&data);
+    config_free(&config);
     return status;
 }

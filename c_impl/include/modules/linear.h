@@ -33,6 +33,12 @@ int linear_he_init(
     RNG *rng
 );
 
+int linear_normal_init(
+    Linear *linear,
+    RNG *rng,
+    float std
+);
+
 int linear_forward
 (
     const Linear *linear,

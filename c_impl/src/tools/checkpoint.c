@@ -282,6 +282,14 @@ cleanup:
 }
 
 int checkpoint_save(const char *path, struct Model *model, struct Optimizer *optimizer, size_t epoch) {
+    return checkpoint_save_many(path, model, &optimizer, 1, epoch);
+}
+
+int checkpoint_load(const char *path, struct Model *model, struct Optimizer *optimizer, size_t *epoch) {
+    return checkpoint_load_many(path, model, &optimizer, 1, epoch);
+}
+
+int checkpoint_save_many(const char *path, struct Model *model, struct Optimizer *const *optimizers, size_t num_optimizers, size_t epoch) {
     Checkpoint checkpoint = {0};
     int status = -1;
     char epoch_text[32];
@@ -290,7 +298,9 @@ int checkpoint_save(const char *path, struct Model *model, struct Optimizer *opt
     if (checkpoint_set_metadata(&checkpoint, "epoch", epoch_text) != 0) goto cleanup;
 
     if (model_save_checkpoint(model, &checkpoint) != 0) goto cleanup;
-    if (optimizer_save_checkpoint(optimizer, &checkpoint) != 0) goto cleanup;
+    for (size_t i=0; i<num_optimizers; i++) {
+        if (optimizer_save_checkpoint(optimizers[i], &checkpoint) != 0) goto cleanup;
+    }
 
     if (checkpoint_write(&checkpoint, path) != 0) goto cleanup;
 
@@ -301,12 +311,14 @@ cleanup:
     return status;
 }
 
-int checkpoint_load(const char *path, struct Model *model, struct Optimizer *optimizer, size_t *epoch) {
+int checkpoint_load_many(const char *path, struct Model *model, struct Optimizer *const *optimizers, size_t num_optimizers, size_t *epoch) {
     Checkpoint checkpoint = {0};
     int status = -1;
 
     if (model_save_checkpoint(model, &checkpoint) != 0) goto cleanup;
-    if (optimizer_save_checkpoint(optimizer, &checkpoint) != 0) goto cleanup;
+    for (size_t i=0; i<num_optimizers; i++) {
+        if (optimizer_save_checkpoint(optimizers[i], &checkpoint) != 0) goto cleanup;
+    }
 
     if (checkpoint_read(&checkpoint, path) != 0) goto cleanup;
 
@@ -315,7 +327,9 @@ int checkpoint_load(const char *path, struct Model *model, struct Optimizer *opt
     *epoch = (size_t)strtoull(epoch_text, NULL, 10);
 
     if (model_load_checkpoint(model, &checkpoint) != 0) goto cleanup;
-    if (optimizer_load_checkpoint(optimizer, &checkpoint) != 0) goto cleanup;
+    for (size_t i=0; i<num_optimizers; i++) {
+        if (optimizer_load_checkpoint(optimizers[i], &checkpoint) != 0) goto cleanup;
+    }
     
     status = 0;
 
