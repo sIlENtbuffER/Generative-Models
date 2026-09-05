@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int stack_alloc(Linear **layers, char (**names)[GAN_PARAMETER_NAME_SIZE], const size_t *dims, size_t num_layers, const char *prefix) {
+static int gan_layer_alloc(Linear **layers, char (**names)[GAN_PARAMETER_NAME_SIZE], const size_t *dims, size_t num_layers, const char *prefix) {
     *layers = calloc(num_layers, sizeof(Linear));
     *names = calloc(2 * num_layers, sizeof **names);
     if (*layers == NULL || *names == NULL) return -1;
@@ -37,12 +37,12 @@ int gan_alloc(GAN *gan, size_t input_dim, size_t latent_dim, const size_t *g_hid
     dims[0] = latent_dim;
     memcpy(&dims[1], g_hidden_dims, num_g_hidden * sizeof(size_t));
     dims[num_g_hidden + 1] = input_dim;
-    if (stack_alloc(&gan->generator.layers, &gan->generator.parameter_names, dims, gan->generator.num_layers, "generator") != 0) goto cleanup;
+    if (gan_layer_alloc(&gan->generator.layers, &gan->generator.parameter_names, dims, gan->generator.num_layers, "generator") != 0) goto cleanup;
 
     dims[0] = input_dim;
     memcpy(&dims[1], d_hidden_dims, num_d_hidden * sizeof(size_t));
     dims[num_d_hidden + 1] = 1;
-    if (stack_alloc(&gan->discriminator.layers, &gan->discriminator.parameter_names, dims, gan->discriminator.num_layers, "discriminator") != 0) goto cleanup;
+    if (gan_layer_alloc(&gan->discriminator.layers, &gan->discriminator.parameter_names, dims, gan->discriminator.num_layers, "discriminator") != 0) goto cleanup;
 
     free(dims);
     return 0;
@@ -69,7 +69,7 @@ void gan_free(GAN *gan) {
     *gan = (GAN){0};
 }
 
-static int stack_workspace_alloc(StackWorkspace *stack, const Linear *layers, size_t num_layers, size_t batch_size) {
+int stack_workspace_alloc(StackWorkspace *stack, const Linear *layers, size_t num_layers, size_t batch_size) {
     *stack = (StackWorkspace){0};
     stack->num_layers = num_layers;
 
@@ -84,14 +84,6 @@ static int stack_workspace_alloc(StackWorkspace *stack, const Linear *layers, si
     }
 
     return 0;
-}
-
-int stack_gn_workspace_alloc(StackWorkspace *stack, const Generator *generator, const size_t batch_size) {
-    return stack_workspace_alloc(stack, generator->layers, generator->num_layers, batch_size);
-}
-
-int stack_dc_workspace_alloc(StackWorkspace *stack, const Discriminator *discriminator, const size_t batch_size) {
-    return stack_workspace_alloc(stack, discriminator->layers, discriminator->num_layers, batch_size);
 }
 
 void stack_workspace_free(StackWorkspace *stack) {
@@ -114,12 +106,12 @@ int gan_workspace_alloc(GANWorkspace *ganws, const GAN *gan, size_t batch_size) 
     if (tensor_alloc_2d(&ganws->x_all, 2 * batch_size, gan->generator.input_dim) != 0) goto cleanup;
     if (tensor_alloc_2d(&ganws->y, 2 * batch_size, 1) != 0) goto cleanup;
 
-    if (stack_gn_workspace_alloc(&ganws->g_for, &gan->generator, batch_size) != 0) goto cleanup;
-    if (stack_gn_workspace_alloc(&ganws->g_bac, &gan->generator, batch_size) != 0) goto cleanup;
-    if (stack_dc_workspace_alloc(&ganws->d_all_for, &gan->discriminator, 2 * batch_size) != 0) goto cleanup;
-    if (stack_dc_workspace_alloc(&ganws->d_all_bac, &gan->discriminator, 2 * batch_size) != 0) goto cleanup;
-    if (stack_dc_workspace_alloc(&ganws->d_fake_for, &gan->discriminator, batch_size) != 0) goto cleanup;
-    if (stack_dc_workspace_alloc(&ganws->d_fake_bac, &gan->discriminator, batch_size) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ganws->g_for, gan->generator.layers, gan->generator.num_layers, batch_size) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ganws->g_bac, gan->generator.layers, gan->generator.num_layers, batch_size) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ganws->d_all_for, gan->discriminator.layers, gan->discriminator.num_layers, 2 * batch_size) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ganws->d_all_bac, gan->discriminator.layers, gan->discriminator.num_layers, 2 * batch_size) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ganws->d_fake_for, gan->discriminator.layers, gan->discriminator.num_layers, batch_size) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ganws->d_fake_bac, gan->discriminator.layers, gan->discriminator.num_layers, batch_size) != 0) goto cleanup;
 
     return 0;
 
@@ -195,9 +187,7 @@ int discriminator_forward(const Discriminator *discriminator, const Tensor *x, S
 }
 
 int discriminator_backward(Discriminator *discriminator, const StackWorkspace *fw_ws, StackWorkspace *bw_ws) {
-    const size_t last = discriminator->num_layers - 1;
-
-    for (size_t i=last; i>=1; i--) {
+    for (size_t i=discriminator->num_layers - 1; i>=1; i--) {
         if (linear_backward(&discriminator->layers[i], &fw_ws->hidden[i-1], &bw_ws->pre[i], &bw_ws->hidden[i-1]) != 0) return -1;
         if (leaky_relu_backward(&fw_ws->pre[i-1], &bw_ws->hidden[i-1], GAN_LEAKY_RELU_SLOPE, &bw_ws->pre[i-1]) != 0) return -1;
     }

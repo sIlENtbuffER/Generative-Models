@@ -1,6 +1,7 @@
 #ifndef GAN_H
 #define GAN_H
 #define GAN_LEAKY_RELU_SLOPE 0.2f
+#define GAN_PARAMETER_NAME_SIZE 32
 
 #include "core/rng.h"
 #include "core/tensor.h"
@@ -10,13 +11,10 @@
 
 #include <stddef.h>
 
-#define GAN_PARAMETER_NAME_SIZE 32
-
 typedef struct
 {
     size_t input_dim;
     size_t latent_dim;
-
     Linear *layers;
     size_t num_layers;
     char (*parameter_names)[GAN_PARAMETER_NAME_SIZE];
@@ -25,7 +23,6 @@ typedef struct
 typedef struct
 {
     size_t input_dim;
-
     Linear *layers;
     size_t num_layers;
     char (*parameter_names)[GAN_PARAMETER_NAME_SIZE];
@@ -78,18 +75,12 @@ int gan_alloc
 
 void gan_free(GAN *gan);
 
-int stack_gn_workspace_alloc
+int stack_workspace_alloc
 (
     StackWorkspace *stack,
-    const Generator *generator,
-    const size_t batch_size
-);
-
-int stack_dc_workspace_alloc
-(
-    StackWorkspace *stack,
-    const Discriminator *discriminator,
-    const size_t batch_size
+    const Linear *layers,
+    size_t num_layers,
+    size_t batch_size
 );
 
 void stack_workspace_free(StackWorkspace *stack);

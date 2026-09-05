@@ -281,15 +281,7 @@ cleanup:
     return status;
 }
 
-int checkpoint_save(const char *path, struct Model *model, struct Optimizer *optimizer, size_t epoch) {
-    return checkpoint_save_many(path, model, &optimizer, 1, epoch);
-}
-
-int checkpoint_load(const char *path, struct Model *model, struct Optimizer *optimizer, size_t *epoch) {
-    return checkpoint_load_many(path, model, &optimizer, 1, epoch);
-}
-
-int checkpoint_save_many(const char *path, struct Model *model, struct Optimizer *const *optimizers, size_t num_optimizers, size_t epoch) {
+int checkpoint_save(const char *path, struct Model *model, struct Optimizer *const *optimizers, size_t num_optimizers, size_t epoch) {
     Checkpoint checkpoint = {0};
     int status = -1;
     char epoch_text[32];
@@ -311,7 +303,7 @@ cleanup:
     return status;
 }
 
-int checkpoint_load_many(const char *path, struct Model *model, struct Optimizer *const *optimizers, size_t num_optimizers, size_t *epoch) {
+int checkpoint_load(const char *path, struct Model *model, struct Optimizer *const *optimizers, size_t num_optimizers, size_t *epoch) {
     Checkpoint checkpoint = {0};
     int status = -1;
 

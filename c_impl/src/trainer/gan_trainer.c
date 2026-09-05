@@ -114,7 +114,7 @@ int gan_sample(const Generator *generator, RNG *rng, Data *output) {
     StackWorkspace ws = {0};
     Tensor z = {0};
 
-    if (stack_gn_workspace_alloc(&ws, generator, output->count) != 0) goto cleanup;
+    if (stack_workspace_alloc(&ws, generator->layers, generator->num_layers, output->count) != 0) goto cleanup;
     if (tensor_alloc_2d(&z, output->count, generator->latent_dim) != 0) goto cleanup;
 
     for (size_t i=0; i<z.numel; i++) {

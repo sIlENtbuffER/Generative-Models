@@ -44,7 +44,7 @@ int trainer_train(Model *model, const Config *config, RNG *rng, Data *data) {
     if (data_alloc(&samples, config->num_samples, data->channels, data->rows, data->cols) != 0) goto cleanup;
 
     if (config->load_checkpoint) {
-        if (checkpoint_load_many(config->checkpoint_path, model, optimizer_list, num_optimizers, &completed_epoch) != 0) goto cleanup;
+        if (checkpoint_load(config->checkpoint_path, model, optimizer_list, num_optimizers, &completed_epoch) != 0) goto cleanup;
         printf("Loaded checkpoint: %s, epoch: %zu\n", config->checkpoint_path, completed_epoch);
     }
 
@@ -56,7 +56,7 @@ int trainer_train(Model *model, const Config *config, RNG *rng, Data *data) {
         }
 
         snprintf(checkpoint_path, sizeof checkpoint_path, "%s/epoch_%zu.safetensors", config->checkpoint_dir, epoch);
-        if (checkpoint_save_many(checkpoint_path, model, optimizer_list, num_optimizers, epoch) != 0) goto cleanup;
+        if (checkpoint_save(checkpoint_path, model, optimizer_list, num_optimizers, epoch) != 0) goto cleanup;
     }
 
     status = 0;
