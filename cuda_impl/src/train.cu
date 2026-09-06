@@ -16,33 +16,20 @@ int main(int argc, char **argv) {
     Data data = {};
     uint64_t seed = 0;
     Model model = {};
-    Optimizer optimizer = {};
-    size_t completed_epoch = 0;
-    size_t hidden_dim = 0;
-    size_t latent_dim = 0;
 
     if (config_load(&config, config_path) != 0) goto cleanup;
 
     seed = config.seed;
     if (data_load(&data, config.dataset_name, config.data_dir) != 0) goto cleanup;
-    if (config_get_size(config.model, "hidden_dim", &hidden_dim) != 0) goto cleanup;
-    if (config_get_size(config.model, "latent_dim", &latent_dim) != 0) goto cleanup;
-    if (model_build(&model, config.model_name, data.channels * data.rows * data.cols, hidden_dim, latent_dim, &seed) != 0) goto cleanup;
-    if (optimizer_build(&optimizer, config.optimizer_name, model.parameters, model.num_parameters, config.learning_rate, config.beta1, config.beta2, config.eps) != 0) goto cleanup;
+    if (model_build(&model, config.model_name, data.channels * data.rows * data.cols, config.model, &seed) != 0) goto cleanup;
 
-    if (config.load_checkpoint) {
-        if (checkpoint_load(config.checkpoint_path, &model, &optimizer, &completed_epoch) != 0) goto cleanup;
-        printf("Loaded checkpoint: %s, epoch: %zu\n", config.checkpoint_path, completed_epoch);
-    }
-
-    if (config.training_enabled && completed_epoch < config.epochs) {
-        if (trainer_train(&model, &optimizer, &seed, config.batch_size, completed_epoch + 1, config.epochs, &data, config.num_samples, config.sample_dir, config.checkpoint_dir) != 0) goto cleanup;
+    if (config.training_enabled) {
+        if (trainer_train(&model, &config, &seed, &data) != 0) goto cleanup;
     }
 
     status = EXIT_SUCCESS;
 
 cleanup:
-    optimizer_free(&optimizer);
     model_free(&model);
     data_free(&data);
     config_free(&config);

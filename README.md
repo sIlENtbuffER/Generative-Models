@@ -66,7 +66,7 @@ CelebA (color, 64×64):
 
 ```bash
 mkdir -p data/CelebA
-curl -r 0-250000000 -o data/CelebA/img_align_celeba.zip "https://huggingface.co/datasets/Yuehao/celeba/resolve/main/img_align_celeba.zip"
+curl -L -r 0-250000000 -o data/CelebA/img_align_celeba.zip "https://huggingface.co/datasets/Yuehao/celeba/resolve/main/img_align_celeba.zip"
 python scripts/prepare_celeba.py
 ```
 

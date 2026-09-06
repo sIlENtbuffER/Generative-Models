@@ -4,6 +4,7 @@
 #include "core/parameter.cuh"
 #include "core/rng.cuh"
 #include "tools/checkpoint.h"
+#include "tools/config.h"
 #include "optimizers/optimizer.cuh"
 #include "data/data.h"
 
@@ -16,7 +17,8 @@ extern "C" {
 typedef enum
 {
     MODEL_NONE,
-    MODEL_VAE
+    MODEL_VAE,
+    MODEL_GAN
 } ModelType;
 
 typedef struct Model
@@ -33,8 +35,7 @@ int model_build
     Model *model,
     const char *name,
     size_t input_dim,
-    size_t hidden_dim,
-    size_t latent_dim,
+    const cJSON *model_cfg,
     uint64_t *seed
 );
 

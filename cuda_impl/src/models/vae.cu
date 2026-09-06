@@ -23,22 +23,6 @@ __global__ static void vae_forward_kernel(float *z, float *eps, const float *mu,
     z[i] = mu[i] + expf(0.5f * logvar[i]) * eps[i];
 }
 
-__device__ static void block_reduce_add(float *target, float value) {
-    __shared__ float partial[THREADS_PER_BLOCK];
-
-    partial[threadIdx.x] = value;
-    __syncthreads();
-
-    for (size_t stride=blockDim.x/2; stride>0; stride/=2) {
-        if (threadIdx.x < stride) {
-            partial[threadIdx.x] += partial[threadIdx.x + stride];
-        }
-        __syncthreads();
-    }
-
-    if (threadIdx.x == 0) atomicAdd(target, partial[0]);
-}
-
 __global__ static void vae_backward_recon_loss_kernel(float *recon_loss, float *output, const float *x, const float *z, const float *p, size_t batch_size, size_t numel) {
     size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 

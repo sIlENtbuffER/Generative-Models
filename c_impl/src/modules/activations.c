@@ -88,4 +88,3 @@ int tanh_backward(const Tensor *fw_output, const Tensor *grad, Tensor *output) {
 
     return 0;
 }
-

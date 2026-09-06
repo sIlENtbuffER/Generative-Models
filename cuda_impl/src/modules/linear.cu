@@ -69,6 +69,7 @@ int linear_forward(const Linear *linear, const DeviceTensor *x, DeviceTensor *ou
 int linear_backward(Linear *linear, const DeviceTensor *x, const DeviceTensor *grad, DeviceTensor *output) {
     const size_t axes[] = {1, 0};
 
+    if (linear->x_T.shape[0] != x->shape[1] || linear->x_T.shape[1] != x->shape[0]) tensor_free(&linear->x_T);
     if (linear->x_T.data == NULL && tensor_alloc_2d(&linear->x_T, x->shape[1], x->shape[0]) != 0) return -1;
     if (linear->W_T.data == NULL && tensor_alloc_2d(&linear->W_T, linear->W.shape[1], linear->W.shape[0]) != 0) return -1;
     if (tensor_transpose(x, axes, &linear->x_T) != 0 || tensor_transpose(&linear->W, axes, &linear->W_T) != 0) return -1;

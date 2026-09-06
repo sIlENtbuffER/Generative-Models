@@ -20,6 +20,7 @@ typedef struct Optimizer
 {
     OptimizerType type;
     void *implementation;
+    char label[32];
 } Optimizer;
 
 int optimizer_build

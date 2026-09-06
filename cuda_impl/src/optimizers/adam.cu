@@ -84,7 +84,7 @@ int adam_step(Adam *adam) {
     return 0;
 }
 
-int adam_save_checkpoint(Adam *adam, Checkpoint *checkpoint) {
+int adam_save_checkpoint(Adam *adam, const char *label, Checkpoint *checkpoint) {
     char name[CHECKPOINT_TENSOR_NAME_SIZE];
     Tensor host = {};
 
@@ -93,32 +93,38 @@ int adam_save_checkpoint(Adam *adam, Checkpoint *checkpoint) {
 
         if (tensor_alloc(&host, element->m.ndim, element->m.shape) != 0) goto fail;
         if (tensor_device_to_host(&element->m, host.data) != 0) goto fail;
-        snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
+        snprintf(name, sizeof name, "%s.m.%s", label, element->parameter.name);
         if (checkpoint_take_tensor(checkpoint, name, &host) != 0) goto fail;
 
         if (tensor_alloc(&host, element->v.ndim, element->v.shape) != 0) goto fail;
         if (tensor_device_to_host(&element->v, host.data) != 0) goto fail;
-        snprintf(name, sizeof name, "optimizer.v.%s", element->parameter.name);
+        snprintf(name, sizeof name, "%s.v.%s", label, element->parameter.name);
         if (checkpoint_take_tensor(checkpoint, name, &host) != 0) goto fail;
     }
 
     char step[32];
     snprintf(step, sizeof step, "%zu", adam->step);
 
+    char step_key[64];
+    snprintf(step_key, sizeof step_key, "%s_step", label);
+
     tensor_free(&host);
 
-    return checkpoint_set_metadata(checkpoint, "optimizer_step", step);
+    return checkpoint_set_metadata(checkpoint, step_key, step);
 
 fail:
     tensor_free(&host);
     return -1;
 }
 
-int adam_load_checkpoint(Adam *adam, const Checkpoint *checkpoint) {
+int adam_load_checkpoint(Adam *adam, const char *label, const Checkpoint *checkpoint) {
     char name[CHECKPOINT_TENSOR_NAME_SIZE];
     const Tensor *cpt;
 
-    const char *step_text = checkpoint_get_metadata(checkpoint, "optimizer_step");
+    char step_key[64];
+    snprintf(step_key, sizeof step_key, "%s_step", label);
+
+    const char *step_text = checkpoint_get_metadata(checkpoint, step_key);
     if (step_text == NULL) return -1;
     adam->step = (size_t)strtoull(step_text, NULL, 10);
 
@@ -127,11 +133,11 @@ int adam_load_checkpoint(Adam *adam, const Checkpoint *checkpoint) {
 
     for (size_t i=0; i<adam->num_parameters; i++) {
         AdamElement *element = &adam->adam_element[i];
-        snprintf(name, sizeof name, "optimizer.m.%s", element->parameter.name);
+        snprintf(name, sizeof name, "%s.m.%s", label, element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
         if (cpt == NULL || tensor_host_to_device(cpt->data, &element->m) != 0) return -1;
 
-        snprintf(name, sizeof name, "optimizer.v.%s", element->parameter.name);
+        snprintf(name, sizeof name, "%s.v.%s", label, element->parameter.name);
         cpt = checkpoint_get_tensor(checkpoint, name);
         if (cpt == NULL || tensor_host_to_device(cpt->data, &element->v) != 0) return -1;
     }
