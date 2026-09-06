@@ -87,8 +87,8 @@ int gan_train_batch(GAN *gan, Optimizer *g_optimizer, Optimizer *d_optimizer, ui
     const DeviceTensor *x_fake = &ganws->g_for.hidden[g_last];
 
     // D step
-    cudaMemcpy(ganws->x_all.data, x_fake->data, x_fake->numel * sizeof(float), cudaMemcpyDeviceToDevice);
-    cudaMemcpy(&ganws->x_all.data[x_fake->numel], x_real->data, x_real->numel * sizeof(float), cudaMemcpyDeviceToDevice);
+    CUDA_CHECK(cudaMemcpy(ganws->x_all.data, x_fake->data, x_fake->numel * sizeof(float), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(&ganws->x_all.data[x_fake->numel], x_real->data, x_real->numel * sizeof(float), cudaMemcpyDeviceToDevice));
 
     gan_y_init_kernel<<<cuda_blocks(ganws->y.numel), THREADS_PER_BLOCK>>>(ganws->y.data, batch_size, ganws->y.numel);
     CUDA_CHECK(cudaGetLastError());
@@ -98,7 +98,8 @@ int gan_train_batch(GAN *gan, Optimizer *g_optimizer, Optimizer *d_optimizer, ui
     const DeviceTensor *d_logits = &ganws->d_all_for.pre[d_last];
     gan_d_loss_kernel<<<cuda_blocks(d_logits->numel), THREADS_PER_BLOCK>>>(d_logits->data, ganws->y.data, gan->d_loss_scratch.data, ganws->d_all_bac.pre[d_last].data, 2 * batch_size, d_logits->numel);
     CUDA_CHECK(cudaGetLastError());
-    cudaMemcpy(&loss->d_loss, gan->d_loss_scratch.data, sizeof(float), cudaMemcpyDeviceToHost);
+    CUDA_CHECK(cudaMemcpy(&loss->d_loss, gan->d_loss_scratch.data, sizeof(float), cudaMemcpyDeviceToHost));
+    loss->d_loss /= (float)d_logits->numel;
 
     if (discriminator_backward(&gan->discriminator, &ganws->d_all_for, &ganws->d_all_bac) != 0) return -1;
     if (optimizer_step(d_optimizer) != 0) return -1;
@@ -109,10 +110,11 @@ int gan_train_batch(GAN *gan, Optimizer *g_optimizer, Optimizer *d_optimizer, ui
     const DeviceTensor *g_logits = &ganws->d_fake_for.pre[d_last];
     gan_g_loss_kernel<<<cuda_blocks(g_logits->numel), THREADS_PER_BLOCK>>>(g_logits->data, gan->g_loss_scratch.data, ganws->d_fake_bac.pre[d_last].data, batch_size, g_logits->numel);
     CUDA_CHECK(cudaGetLastError());
-    cudaMemcpy(&loss->g_loss, gan->g_loss_scratch.data, sizeof(float), cudaMemcpyDeviceToHost);
+    CUDA_CHECK(cudaMemcpy(&loss->g_loss, gan->g_loss_scratch.data, sizeof(float), cudaMemcpyDeviceToHost));
+    loss->g_loss /= (float)g_logits->numel;
 
     if (discriminator_backward(&gan->discriminator, &ganws->d_fake_for, &ganws->d_fake_bac) != 0) return -1;
-    cudaMemcpy(ganws->g_bac.hidden[g_last].data, ganws->d_fake_bac.input.data, ganws->d_fake_bac.input.numel * sizeof(float), cudaMemcpyDeviceToDevice);
+    CUDA_CHECK(cudaMemcpy(ganws->g_bac.hidden[g_last].data, ganws->d_fake_bac.input.data, ganws->d_fake_bac.input.numel * sizeof(float), cudaMemcpyDeviceToDevice));
     if (generator_backward(&gan->generator, &ganws->g_for, &ganws->g_bac) != 0) return -1;
     if (optimizer_step(g_optimizer) != 0) return -1;
 
@@ -136,7 +138,7 @@ int gan_train_epoch(GAN *gan, Optimizer *g_optimizer, Optimizer *d_optimizer, ui
         GANLoss batch_loss;
 
         if (data_batch(data, start, &x_real_host) != 0) goto cleanup;
-        cudaMemcpy(x_real.data, x_real_host.data, x_real.numel * sizeof(float), cudaMemcpyHostToDevice);
+        if (cudaMemcpy(x_real.data, x_real_host.data, x_real.numel * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) goto cleanup;
         gan_normalize_kernel<<<cuda_blocks(x_real.numel), THREADS_PER_BLOCK>>>(x_real.data, x_real.numel, 0.5f, 0.5f);
         CUDA_CHECK(cudaGetLastError());
 
@@ -148,8 +150,10 @@ int gan_train_epoch(GAN *gan, Optimizer *g_optimizer, Optimizer *d_optimizer, ui
         seen += batch_size;
     }
 
-    loss.d_loss /= seen;
-    loss.g_loss /= seen;
+    if (seen > 0) {
+        loss.d_loss /= seen;
+        loss.g_loss /= seen;
+    }
 
     printf("Epoch %zu | d_loss: %.4f | g_loss: %.4f\n", epoch, loss.d_loss, loss.g_loss);
 
@@ -163,6 +167,7 @@ int gan_train_epoch(GAN *gan, Optimizer *g_optimizer, Optimizer *d_optimizer, ui
 cleanup:
     gan_workspace_free(&ganws);
     tensor_free(&x_real);
+    tensor_free(&x_real_host);
     return status;
 }
 

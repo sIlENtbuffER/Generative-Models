@@ -33,12 +33,12 @@ int gan_alloc(GAN *gan, size_t input_dim, size_t latent_dim, const size_t *g_hid
     if (dims == NULL) goto cleanup;
 
     dims[0] = latent_dim;
-    memcpy(&dims[1], g_hidden_dims, num_g_hidden * sizeof(size_t));
+    if (num_g_hidden > 0) memcpy(&dims[1], g_hidden_dims, num_g_hidden * sizeof(size_t));
     dims[num_g_hidden + 1] = input_dim;
     if (gan_layer_alloc(&gan->generator.layers, &gan->generator.parameter_names, dims, gan->generator.num_layers, "generator") != 0) goto cleanup;
 
     dims[0] = input_dim;
-    memcpy(&dims[1], d_hidden_dims, num_d_hidden * sizeof(size_t));
+    if (num_d_hidden > 0) memcpy(&dims[1], d_hidden_dims, num_d_hidden * sizeof(size_t));
     dims[num_d_hidden + 1] = 1;
     if (gan_layer_alloc(&gan->discriminator.layers, &gan->discriminator.parameter_names, dims, gan->discriminator.num_layers, "discriminator") != 0) goto cleanup;
 
@@ -149,7 +149,7 @@ int gan_init(GAN *gan, uint64_t *seed) {
 
 int generator_forward(const Generator *generator, const DeviceTensor *z, StackWorkspace *ws) {
     if (!tensor_is_same_shape(z, &ws->input)) return -1;
-    cudaMemcpy(ws->input.data, z->data, z->numel * sizeof(float), cudaMemcpyDeviceToDevice);
+    CUDA_CHECK(cudaMemcpy(ws->input.data, z->data, z->numel * sizeof(float), cudaMemcpyDeviceToDevice));
 
     if (linear_forward(&generator->layers[0], &ws->input, &ws->pre[0]) != 0) return -1;
     for (size_t i=1; i<generator->num_layers; i++) {
@@ -176,7 +176,7 @@ int generator_backward(Generator *generator, const StackWorkspace *fw_ws, StackW
 
 int discriminator_forward(const Discriminator *discriminator, const DeviceTensor *x, StackWorkspace *ws) {
     if (!tensor_is_same_shape(x, &ws->input)) return -1;
-    cudaMemcpy(ws->input.data, x->data, x->numel * sizeof(float), cudaMemcpyDeviceToDevice);
+    CUDA_CHECK(cudaMemcpy(ws->input.data, x->data, x->numel * sizeof(float), cudaMemcpyDeviceToDevice));
 
     if (linear_forward(&discriminator->layers[0], &ws->input, &ws->pre[0]) != 0) return -1;
     for (size_t i=1; i<discriminator->num_layers; i++) {
