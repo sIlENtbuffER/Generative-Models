@@ -7,6 +7,7 @@
 
 int optimizer_build(Optimizer *optimizer, const char *name, const Parameter *parameters, size_t num_parameters, float learning_rate, float beta1, float beta2, float eps) {
     *optimizer = (Optimizer){};
+    snprintf(optimizer->label, sizeof optimizer->label, "optimizer");
 
     if (strcmp(name, "adam") == 0) {
         Adam *adam = (Adam*)calloc(1, sizeof *adam);
@@ -45,14 +46,14 @@ int optimizer_step(Optimizer *optimizer) {
 
 int optimizer_save_checkpoint(Optimizer *optimizer, Checkpoint *checkpoint) {
     if (optimizer->type == OPTIMIZER_ADAM) {
-        return adam_save_checkpoint((Adam*)optimizer->implementation, checkpoint);
+        return adam_save_checkpoint((Adam*)optimizer->implementation, optimizer->label, checkpoint);
     }
     return -1;
 }
 
 int optimizer_load_checkpoint(Optimizer *optimizer, const Checkpoint * checkpoint) {
     if (optimizer->type == OPTIMIZER_ADAM) {
-        return adam_load_checkpoint((Adam*)optimizer->implementation, checkpoint);
+        return adam_load_checkpoint((Adam*)optimizer->implementation, optimizer->label, checkpoint);
     }
     return -1;
 }

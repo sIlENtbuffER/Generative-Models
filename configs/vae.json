@@ -4,20 +4,19 @@
   "dataset": {
     "name": "mnist",
     "data_dir": "data/MNIST/raw",
-    "range": [-1.0, 1.0]
+    "range": [0.0, 1.0]
   },
 
   "model": {
-    "name": "gan",
-    "latent_dim": 100,
-    "g_hidden_dims": [256, 512, 1024],
-    "d_hidden_dims": [512, 256]
+    "name": "vae",
+    "hidden_dim": 400,
+    "latent_dim": 20
   },
 
   "optimizer": {
     "name": "adam",
-    "lr": 0.0002,
-    "beta1": 0.5,
+    "lr": 0.001,
+    "beta1": 0.9,
     "beta2": 0.999,
     "eps": 1e-8
   },
@@ -30,12 +29,12 @@
 
   "sampling": {
     "num_samples": 64,
-    "sample_dir": "samples/gan_mnist"
+    "sample_dir": "samples/vae_mnist"
   },
 
   "checkpoint": {
-    "checkpoint_dir": "checkpoints/gan_mnist",
+    "checkpoint_dir": "checkpoints/vae_mnist",
     "load_checkpoint": false,
-    "load_checkpoint_path": "checkpoints/gan_mnist/epoch_1.safetensors"
+    "load_checkpoint_path": "checkpoints/vae_mnist/epoch_1.safetensors"
   }
 }

@@ -4,6 +4,7 @@
 #include "core/parameter.h"
 #include "core/rng.h"
 #include "tools/checkpoint.h"
+#include "tools/config.h"
 #include "optimizers/optimizer.h"
 #include "data/data.h"
 
@@ -12,7 +13,8 @@
 typedef enum
 {
     MODEL_NONE,
-    MODEL_VAE
+    MODEL_VAE,
+    MODEL_GAN
 } ModelType;
 
 typedef struct Model
@@ -29,8 +31,7 @@ int model_build
     Model *model,
     const char *name,
     size_t input_dim,
-    size_t hidden_dim,
-    size_t latent_dim,
+    const cJSON *model_cfg,
     RNG *rng
 );
 

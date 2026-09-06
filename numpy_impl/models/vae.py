@@ -25,7 +25,7 @@ class VAE:
         h = self.relu1.forward(self.fc1.forward(x=x))
         self.mu = self.fc_mu.forward(h)
         self.logvar = self.fc_logvar.forward(h)
-        self.eps = self.rng.normal(loc=0.0, scale=1.0, size=self.mu.shape)
+        self.eps = self.rng.normal(loc=0.0, scale=1.0, size=self.mu.shape).astype(np.float32)
         z = self.mu + np.exp(0.5 * self.logvar) * self.eps
 
         # Decode
@@ -62,7 +62,7 @@ class VAE:
         }
 
     def sample(self, num_samples):
-        z = self.rng.normal(loc=0.0, scale=1.0, size=(num_samples, self.latent_dim))
+        z = self.rng.normal(loc=0.0, scale=1.0, size=(num_samples, self.latent_dim)).astype(np.float32)
         return self.sigmoid.forward(self.fc3.forward(self.relu2.forward(self.fc2.forward(z))))
 
     def trainable_layers(self):
@@ -85,3 +85,4 @@ class VAE:
         for name, layer in self.trainable_layers().items():
             layer.W = state[f"{name}_W"]
             layer.b = state[f"{name}_b"]
+

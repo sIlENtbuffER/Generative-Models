@@ -68,12 +68,26 @@ int linear_forward(const Linear *linear, const DeviceTensor *x, DeviceTensor *ou
 
 int linear_backward(Linear *linear, const DeviceTensor *x, const DeviceTensor *grad, DeviceTensor *output) {
     const size_t axes[] = {1, 0};
+    const size_t x_t_numel = x->shape[1] * x->shape[0];
 
-    if (linear->x_T.data == NULL && tensor_alloc_2d(&linear->x_T, x->shape[1], x->shape[0]) != 0) return -1;
+    if (linear->x_T.data == NULL || x_t_numel > linear->x_T.numel) {
+        tensor_free(&linear->x_T);
+        if (tensor_alloc_2d(&linear->x_T, x->shape[1], x->shape[0]) != 0) return -1;
+    }
     if (linear->W_T.data == NULL && tensor_alloc_2d(&linear->W_T, linear->W.shape[1], linear->W.shape[0]) != 0) return -1;
-    if (tensor_transpose(x, axes, &linear->x_T) != 0 || tensor_transpose(&linear->W, axes, &linear->W_T) != 0) return -1;
 
-    if (tensor_matmul(&linear->x_T, grad, &linear->dW) != 0 || tensor_matmul(grad, &linear->W_T, output) != 0) return -1;
+    DeviceTensor x_T_view = {};
+    x_T_view.ndim = 2;
+    x_T_view.shape[0] = x->shape[1];
+    x_T_view.shape[1] = x->shape[0];
+    x_T_view.strides[0] = x->shape[0];
+    x_T_view.strides[1] = 1;
+    x_T_view.numel = x_t_numel;
+    x_T_view.data = linear->x_T.data;
+
+    if (tensor_transpose(x, axes, &x_T_view) != 0 || tensor_transpose(&linear->W, axes, &linear->W_T) != 0) return -1;
+
+    if (tensor_matmul(&x_T_view, grad, &linear->dW) != 0 || tensor_matmul(grad, &linear->W_T, output) != 0) return -1;
     if (tensor_fill(&linear->db, 0.0f) != 0) return -1;
     linear_bias_backward_kernel<<<cuda_blocks(grad->numel), THREADS_PER_BLOCK>>>(linear->db.data, grad->data, grad->numel, grad->strides[grad->ndim - 2]);
     if (cudaGetLastError() != cudaSuccess) return -1;

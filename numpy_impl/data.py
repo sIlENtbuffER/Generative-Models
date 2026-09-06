@@ -33,11 +33,11 @@ def load_dataset(cfg):
         raise ValueError(f"Unknown dataset: {name}")
     return DATASET_LOADERS[name](data_dir=cfg["data_dir"])
 
-def batches(x, batch_size, rng, shuffle=True):
+def batches(x, batch_size, rng, low, high, shuffle=True):
     indices = np.arange(len(x))
     if shuffle:
         rng.shuffle(indices)
 
     for start in range(0, len(x), batch_size):
         batch_indices = indices[start:start+batch_size]
-        yield x[batch_indices].astype(np.float32) / 255.0
+        yield x[batch_indices].astype(np.float32) / 255.0 * (high - low) + low

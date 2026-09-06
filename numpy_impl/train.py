@@ -1,24 +1,29 @@
+import argparse
 import numpy as np
 import json
 from pathlib import Path
 
 from models import build_model
-from optimizer import build_optimizer
-from trainer import Trainer
+from trainer import build_trainer
 from data import load_dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "configs" / "default.json"
 
 def main():
-    cfg = load_config()
+    args = parse_args()
+    cfg = load_config(cfg_path=args.config)
 
     rng = np.random.default_rng(seed=cfg["seed"])
     data, shape = load_dataset(cfg=cfg["dataset"])
     model = build_model(cfg=cfg["model"], rng=rng, input_dim=int(np.prod(shape)))
-    optimizer = build_optimizer(cfg=cfg["optimizer"], layers=model.trainable_layers())
-    trainer = Trainer(model=model, optimizer=optimizer, cfg=cfg)
+    trainer = build_trainer(cfg=cfg, model=model)
     trainer.train(data=data, shape=shape, rng=rng)
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config", nargs="?", default=CONFIG_PATH)
+    return parser.parse_args()
 
 def load_config(cfg_path=CONFIG_PATH):
     with open(cfg_path) as f:

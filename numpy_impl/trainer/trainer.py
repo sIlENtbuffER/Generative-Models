@@ -1,20 +1,20 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from data import batches
 from safetensors import safe_open
 from safetensors.numpy import save_file
 
 class Trainer:
-    def __init__(self, model, optimizer, cfg):
-        self.model = model
-        self.optimizer = optimizer
+    def __init__(self, models, optimizers, cfg):
+        self.models = models
+        self.optimizers = optimizers
         self.batch_size = cfg["training"]["batch_size"]
         self.num_samples = cfg["sampling"]["num_samples"]
         self.sample_dir = cfg["sampling"]["sample_dir"]
         self.cpt_dir = cfg["checkpoint"]["checkpoint_dir"]
         self.cpt_path = cfg["checkpoint"]["load_checkpoint_path"] if cfg["checkpoint"]["load_checkpoint"] else None
-        self.epochs=cfg["training"]["epochs"]
+        self.epochs = cfg["training"]["epochs"]
+        self.low, self.high = cfg["dataset"]["range"]
 
         os.makedirs(self.sample_dir, exist_ok=True)
         os.makedirs(self.cpt_dir, exist_ok=True)
@@ -24,36 +24,17 @@ class Trainer:
 
         if self.cpt_path:
             start_epoch = self.load_checkpoints() + 1
-        
+
         for epoch in range(start_epoch, self.epochs + 1):
             metrics = self.train_epoch(data=data, rng=rng)
-            print(f"Epoch {epoch:2d} | "
-                f"loss: {metrics['loss']:.2f} | "
-                f"recon: {metrics['recon_loss']:.2f} | "
-                f"kl: {metrics['kl_loss']:.2f}"
-            )
+            metrics_str = " | ".join(f"{name}: {value:.4f}" for name, value in metrics.items())
+            print(f"Epoch {epoch:2d} | {metrics_str}")
 
             self.save_samples(epoch)
             self.save_checkpoints(epoch)
 
-    def train_epoch(self, data, rng):
-        loss = {"loss": 0.0, "recon_loss": 0.0, "kl_loss": 0.0}
-        seen = 0
-
-        for x in batches(x=data, batch_size=self.batch_size, rng=rng):
-            x_hat = self.model.forward(x)
-            metrics = self.model.backward(x=x, x_hat=x_hat)
-            self.optimizer.step()
-
-            batch_size = len(x)
-            seen += batch_size 
-            for name, value in metrics.items():
-                loss[name] += value * batch_size
-
-        return {key: value / seen for key, value in loss.items()}
-
     def save_samples(self, epoch):
-        samples = self.model.sample(self.num_samples)
+        samples = (self.sample(self.num_samples) - self.low) / (self.high - self.low)
         cols = int(np.ceil(np.sqrt(self.num_samples)))
         rows = int(np.ceil(self.num_samples / cols))
         images = samples.reshape(self.num_samples, *self.shape)
@@ -70,16 +51,18 @@ class Trainer:
         plt.close(fig)
 
     def save_checkpoints(self, epoch):
-        path = os.path.join(self.cpt_dir, f"vae_epoch_{epoch}.safetensors")
+        path = os.path.join(self.cpt_dir, f"epoch_{epoch}.safetensors")
         tensors = {}
-        for name, value in self.model.state_dict().items():
-            tensors[f"model.{name}"] = np.ascontiguousarray(value, dtype=np.float32)
-        for name, value in self.optimizer.state_dict().items():
-            tensors[f"optimizer.{name}"] = np.ascontiguousarray(value, dtype=np.float32)
+        for model_name, model in self.models.items():
+            for name, value in model.state_dict().items():
+                tensors[f"{model_name}.{name}"] = np.ascontiguousarray(value, dtype=np.float32)
 
         metadata = {"epoch": str(epoch)}
-        if hasattr(self.optimizer, "t"):
-            metadata["optimizer_step"] = str(self.optimizer.t)
+        for opt_name, optimizer in self.optimizers.items():
+            for name, value in optimizer.state_dict().items():
+                tensors[f"{opt_name}.{name}"] = np.ascontiguousarray(value, dtype=np.float32)
+            if hasattr(optimizer, "t"):
+                metadata[f"{opt_name}_step"] = str(optimizer.t)
 
         save_file(tensors, path, metadata=metadata)
 
@@ -88,14 +71,16 @@ class Trainer:
             tensors = {name: cpt.get_tensor(name) for name in cpt.keys()}
             metadata = cpt.metadata()
 
-        model_state = {name[len("model."):]: value for name, value in tensors.items() if name.startswith("model.")}
-        optimizer_state = {name[len("optimizer."):]: value for name, value in tensors.items() if name.startswith("optimizer.")}
-
-        self.model.load_state_dict(model_state)
-        self.optimizer.load_state_dict(optimizer_state)
-        if hasattr(self.optimizer, "t") and "optimizer_step" in metadata:
-            self.optimizer.t = int(metadata["optimizer_step"])
+        for model_name, model in self.models.items():
+            model.load_state_dict(select(tensors=tensors, prefix=model_name))
+        for opt_name, optimizer in self.optimizers.items():
+            optimizer.load_state_dict(select(tensors=tensors, prefix=opt_name))
+            if hasattr(optimizer, "t") and f"{opt_name}_step" in metadata:
+                optimizer.t = int(metadata[f"{opt_name}_step"])
 
         epoch = int(metadata["epoch"])
         print(f"Loaded model weights from {self.cpt_path} at epoch {epoch}")
         return epoch
+
+def select(tensors, prefix):
+    return {name[len(prefix) + 1:]: value for name, value in tensors.items() if name.startswith(f"{prefix}.")}

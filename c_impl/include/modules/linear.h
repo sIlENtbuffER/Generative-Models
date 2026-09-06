@@ -28,9 +28,17 @@ int linear_alloc
 
 void linear_free(Linear *linear);
 
-int linear_he_init(
+int linear_he_init
+(
     Linear *linear,
     RNG *rng
+);
+
+int linear_normal_init
+(
+    Linear *linear,
+    RNG *rng,
+    float std
 );
 
 int linear_forward

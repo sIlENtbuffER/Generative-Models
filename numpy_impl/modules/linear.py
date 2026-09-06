@@ -1,10 +1,9 @@
 import numpy as np
+from initializer import he
 
 class Linear:
-    def __init__(self, in_dim, out_dim, rng):
-        # I use He initialization here :)
-        scale = np.sqrt(2.0 / in_dim)
-        self.W = rng.normal(loc=0.0, scale=scale, size=(in_dim, out_dim)).astype(np.float32)
+    def __init__(self, in_dim, out_dim, rng, init=he):
+        self.W = init(rng=rng, in_dim=in_dim, out_dim=out_dim)
         self.b = np.zeros(out_dim, dtype=np.float32)
 
     def forward(self, x):

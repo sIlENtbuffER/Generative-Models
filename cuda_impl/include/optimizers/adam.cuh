@@ -42,12 +42,14 @@ int adam_step(Adam *adam);
 int adam_save_checkpoint
 (
     Adam *adam,
+    const char *label,
     Checkpoint *checkpoint
 );
 
 int adam_load_checkpoint
 (
     Adam *adam,
+    const char *label,
     const Checkpoint *checkpoint
 );
 

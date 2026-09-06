@@ -87,7 +87,8 @@ int checkpoint_save
 (
     const char *path,
     struct Model *model,
-    struct Optimizer *optimizer,
+    struct Optimizer *const *optimizers,
+    size_t num_optimizers,
     size_t epoch
 );
 
@@ -95,7 +96,8 @@ int checkpoint_load
 (
     const char *path,
     struct Model *model,
-    struct Optimizer *optimizer,
+    struct Optimizer *const *optimizers,
+    size_t num_optimizers,
     size_t *epoch
 );
 

@@ -5,21 +5,16 @@
 #include "data/data.h"
 #include "models/model.cuh"
 #include "optimizers/optimizer.cuh"
+#include "tools/config.h"
 
 #include <stddef.h>
 
 int trainer_train
 (
     Model *model,
-    Optimizer *optimizer,
+    const Config *config,
     uint64_t *seed,
-    size_t batch_size,
-    size_t start_epoch,
-    size_t epochs,
-    Data *data,
-    size_t num_samples,
-    const char *sample_dir,
-    const char *checkpoint_dir
+    Data *data
 );
 
 #endif

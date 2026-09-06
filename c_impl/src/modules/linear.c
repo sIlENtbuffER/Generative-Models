@@ -34,6 +34,17 @@ int linear_he_init(Linear *linear, RNG *rng) {
     return 0;
 }
 
+int linear_normal_init(Linear *linear, RNG *rng, float std) {
+    if (linear->W.data == NULL || linear->b.data == NULL || linear->in_dim == 0) return -1;
+    
+    for (size_t i=0; i<linear->W.numel; i++) {
+        linear->W.data[i] = rng_normal(rng) * std;
+    }
+    tensor_fill(&linear->b, 0.0f);
+    
+    return 0;
+}
+
 int linear_forward(const Linear *linear, const Tensor *x, Tensor *output) {
     if (tensor_matmul(x, &linear->W, output) != 0) return -1;
 
