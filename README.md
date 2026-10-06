@@ -12,6 +12,8 @@ See [AGENTS.md](AGENTS.md) for the full methodology and project rules.
 
 ![Generative models learning roadmap](docs/roadmap.png)
 
+Roadmap by Xiyan Huang (sIlENtbuffER), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Project layout
 
 ```
@@ -26,26 +28,31 @@ data/           datasets
 
 ### Environment
 
-Needs conda (or miniconda) and a C compiler.
+Needs conda (or miniconda).
 
 ```bash
 git clone https://github.com/sIlENtbuffER/Generative-Models.git
 cd Generative-Models
-conda env create -f environment.yml
-conda activate genmodels_NV_CU130_py312
 ```
 
-`environment.yml` pulls in `gcc_linux-64`, which targets Linux x86-64. On macOS or Linux ARM, swap that line before creating the env:
+#### Linux x86-64 with an NVIDIA GPU
 
 ```bash
-# macOS (Intel)
-sed 's/gcc_linux-64/clang_osx-64/' environment.yml > /tmp/environment.yml && conda env create -f /tmp/environment.yml
+CUDA_VER=$(nvidia-smi | sed -n 's/.*CUDA Version: \([0-9.]*\).*/\1/p')
+ENV_NAME=genmodels_NV_CU${CUDA_VER//./}_py312
+sed -E "s/^(  - cuda-[a-z-]+)=.*/\1=$CUDA_VER/" environment.yml > /tmp/environment.yml
+conda env create -f /tmp/environment.yml -n $ENV_NAME
+conda activate $ENV_NAME
+```
 
-# macOS (Apple Silicon)
-sed 's/gcc_linux-64/clang_osx-arm64/' environment.yml > /tmp/environment.yml && conda env create -f /tmp/environment.yml
+#### macOS, Linux ARM, or no NVIDIA GPU
 
-# Linux ARM (aarch64)
-sed 's/gcc_linux-64/gcc_linux-aarch64/' environment.yml > /tmp/environment.yml && conda env create -f /tmp/environment.yml
+Needs a system C11 compiler (Xcode Command Line Tools on macOS, GCC/Clang on Linux).
+
+```bash
+conda create -n genmodels_CPU_py312 -c conda-forge python=3.12 uv cmake ninja
+conda activate genmodels_CPU_py312
+"$CONDA_PREFIX/bin/uv" pip install --python "$CONDA_PREFIX/bin/python" numpy matplotlib pillow safetensors
 ```
 
 ### Datasets
@@ -134,3 +141,13 @@ The paper behind each model on the roadmap, grouped by track.
 - VAR — Tian et al., [Visual Autoregressive Modeling: Scalable Image Generation via Next-Scale Prediction](https://arxiv.org/abs/2404.02905) (2024)
 - SD3 — Esser et al., [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) (2024)
 - i1 — Zeng et al., [i1: A Simple and Fully Open Recipe for Strong Text-to-Image Models](https://arxiv.org/abs/2606.11289) (2026)
+
+## License
+
+The [MIT License](LICENSE) applies to original source code and configuration files. It does not apply to the standalone documentation, diagrams, or images below.
+
+Original standalone documentation, diagrams, and images, including `README.md`, `AGENTS.md`, and `docs/roadmap.png`, are licensed under [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+
+Copyright (c) 2026 Xiyan Huang (sIlENtbuffER). When sharing the CC BY material, credit the creator, retain the copyright notice, link to [this repository](https://github.com/sIlENtbuffER/Generative-Models) and the license, and indicate any changes.
+
+Vendored code in `c_impl/third_party/` remains under its original licenses; see the notices included with those files.
